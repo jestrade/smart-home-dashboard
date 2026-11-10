@@ -53,7 +53,8 @@ export interface DeviceState {
     currentLimitA?: number; targetPercent?: number; minutesToTarget?: number;
   };
   trip?: {
-    avgEnergyKwhPer100km?: number; avgFuelLPer100km?: number; avgSpeedKmh?: number;
+    avgEnergyKwhPer100km?: number; avgEnergyAutoKwhPer100km?: number; avgEnergySinceChargeKwhPer100km?: number;
+    avgFuelLPer100km?: number; avgFuelAutoLPer100km?: number; avgSpeedKmh?: number; avgSpeedAutoKmh?: number;
     tripManualKm?: number; tripAutomaticKm?: number;
     distanceToEmptyBatteryKm?: number; distanceToEmptyTankKm?: number;
   };
@@ -61,6 +62,7 @@ export interface DeviceState {
   service?: { distanceKm?: number; months?: number; engineHours?: number };
   warnings?: { name: string; value: string }[];
   lampChecks?: number;
+  lights?: Record<string, string>;
   details?: { model?: string; modelYear?: number; fuelType?: string; color?: string; gearbox?: string; batteryCapacityKwh?: number };
   reportedAt?: string;
   unavailable?: string[];

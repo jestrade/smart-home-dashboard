@@ -31,6 +31,9 @@ const UNAVAILABLE_LABELS: Record<string, string> = {
   engine: 'oil and coolant',
 };
 
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const compass = (deg: number) => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+
 function ago(iso?: string) {
   if (!iso) return null;
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -184,14 +187,31 @@ function VehicleCard({ car }: { car: Device }) {
 
       {s.trip && (
         <Section title="Trip statistics">
-          <div className="kv">
-            {t.avgEnergyKwhPer100km != null && <><span>Avg. energy use</span><b>{num(t.avgEnergyKwhPer100km, 1)} kWh/100 km</b></>}
-            {t.avgFuelLPer100km != null && <><span>Avg. fuel use</span><b>{num(t.avgFuelLPer100km, 1)} L/100 km</b></>}
-            {t.avgSpeedKmh != null && <><span>Avg. speed</span><b>{num(t.avgSpeedKmh)} km/h</b></>}
-            {t.tripAutomaticKm != null && <><span>Trip (automatic)</span><b>{num(t.tripAutomaticKm, 1)} km</b></>}
-            {t.tripManualKm != null && <><span>Trip (manual)</span><b>{num(t.tripManualKm, 1)} km</b></>}
-            {t.distanceToEmptyBatteryKm != null && <><span>Battery to empty</span><b>{num(t.distanceToEmptyBatteryKm)} km</b></>}
+          <div className="table-wrap">
+            <table className="sessions trip-table">
+              <thead><tr><th></th><th>Current trip</th><th>Since reset</th></tr></thead>
+              <tbody>
+                {[
+                  ['Distance', t.tripAutomaticKm, t.tripManualKm, 'km', 1],
+                  ['Avg. speed', t.avgSpeedAutoKmh, t.avgSpeedKmh, 'km/h', 0],
+                  ['Avg. energy use', t.avgEnergyAutoKwhPer100km, t.avgEnergyKwhPer100km, 'kWh/100 km', 1],
+                  ['Avg. fuel use', t.avgFuelAutoLPer100km, t.avgFuelLPer100km, 'L/100 km', 1],
+                ].filter(([, a, b]) => a != null || b != null).map(([label, a, b, unit, d]) => (
+                  <tr key={label as string}>
+                    <td>{label}</td>
+                    <td>{a == null ? '—' : `${num(a as number, d as number)} ${unit}`}</td>
+                    <td>{b == null ? '—' : `${num(b as number, d as number)} ${unit}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+          <div className="kv">
+            {t.avgEnergySinceChargeKwhPer100km != null && <><span>Avg. energy since charge</span><b>{num(t.avgEnergySinceChargeKwhPer100km, 1)} kWh/100 km</b></>}
+            {t.distanceToEmptyBatteryKm != null && <><span>Battery to empty</span><b>{num(t.distanceToEmptyBatteryKm)} km</b></>}
+            {t.distanceToEmptyTankKm != null && <><span>Tank to empty</span><b>{num(t.distanceToEmptyTankKm)} km</b></>}
+          </div>
+          <p className="fine">"Current trip" resets automatically after the car has been parked for a while; "since reset" counts from the last manual trip-meter reset.</p>
         </Section>
       )}
 
@@ -209,6 +229,11 @@ function VehicleCard({ car }: { car: Device }) {
         {s.tyres && (
           <Section title="Tyres">
             <StatusList items={Object.entries(s.tyres).map(([k, v]) => [words(k), v])} />
+          </Section>
+        )}
+        {s.lights && Object.keys(s.lights).length > 0 && (
+          <Section title="Lights">
+            <StatusList items={Object.entries(s.lights).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [words(k.replace(/Warning$/, '')), v])} />
           </Section>
         )}
         <Section title="Health">
@@ -232,7 +257,7 @@ function VehicleCard({ car }: { car: Device }) {
         <Section title="Location">
           <p className="loc">
             {s.location.lat.toFixed(5)}, {s.location.lon.toFixed(5)}
-            {s.location.heading != null && ` · heading ${Math.round(s.location.heading)}°`}
+            {s.location.heading != null && ` · heading ${compass(s.location.heading)} (${Math.round(s.location.heading)}°)`}
             {s.location.at && ` · ${ago(s.location.at)}`}
             {' '}
             <a href={`https://www.google.com/maps?q=${s.location.lat},${s.location.lon}`} target="_blank" rel="noreferrer">Open map ↗</a>

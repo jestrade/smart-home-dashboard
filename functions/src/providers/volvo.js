@@ -153,10 +153,15 @@ async function vehicleState(vin, h) {
 
   // Trip statistics
   if (statistics) {
+    // "Manual" = since the trip meter was last reset; "Automatic" = current trip (resets after a long stop).
     state.trip = {
       avgEnergyKwhPer100km: val(statistics, 'averageEnergyConsumption'),
+      avgEnergyAutoKwhPer100km: val(statistics, 'averageEnergyConsumptionAutomatic'),
+      avgEnergySinceChargeKwhPer100km: val(statistics, 'averageEnergyConsumptionSinceCharge'),
       avgFuelLPer100km: val(statistics, 'averageFuelConsumption'),
+      avgFuelAutoLPer100km: val(statistics, 'averageFuelConsumptionAutomatic'),
       avgSpeedKmh: val(statistics, 'averageSpeed'),
+      avgSpeedAutoKmh: val(statistics, 'averageSpeedAutomatic'),
       tripManualKm: val(statistics, 'tripMeterManual'),
       tripAutomaticKm: val(statistics, 'tripMeterAutomatic'),
       distanceToEmptyBatteryKm: val(statistics, 'distanceToEmptyBattery'),
@@ -189,6 +194,8 @@ async function vehicleState(vin, h) {
     if (!isOk(value)) state.warnings.push({ name, value });
   }
   state.lampChecks = warnings ? Object.keys(flatten(warnings)).length : 0;
+  // Every bulb/lamp the car reports, e.g. { brakeLightLeftWarning: 'NO_WARNING', ... }
+  if (warnings) state.lights = flatten(warnings);
 
   // Location
   const coords = location?.geometry?.coordinates;
