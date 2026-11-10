@@ -13,9 +13,11 @@ const num = (n?: number, digits = 0) =>
 const words = (s: string) =>
   s.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
-const OK_VALUES = new Set(['NO_WARNING', 'CLOSED', 'LOCKED', 'UNSPECIFIED', 'NO_FAILURE', 'NORMAL', 'OK']);
-const statusText = (v?: string) => (v == null ? '—' : v === 'NO_WARNING' ? 'OK' : words(v));
-const tone = (v?: string) => (v == null ? 'muted' : OK_VALUES.has(v) ? 'ok' : 'warn');
+const OK_VALUES = new Set(['NO_WARNING', 'CLOSED', 'LOCKED', 'NO_FAILURE', 'NORMAL', 'OK']);
+// The car does not report this item (e.g. tyre pressure on cars without that sensor).
+const NO_DATA = new Set(['UNSPECIFIED', 'UNKNOWN']);
+const statusText = (v?: string) => (v == null ? '—' : v === 'NO_WARNING' ? 'OK' : NO_DATA.has(v) ? 'No data' : words(v));
+const tone = (v?: string) => (v == null || NO_DATA.has(v) ? 'muted' : OK_VALUES.has(v) ? 'ok' : 'warn');
 
 const UNAVAILABLE_LABELS: Record<string, string> = {
   details: 'model, colour and photo (needs conve:vehicle_relation)',
