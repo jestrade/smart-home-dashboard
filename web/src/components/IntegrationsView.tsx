@@ -63,6 +63,7 @@ function IntegrationCard({ meta, status, backend, notify, open, onToggle }: {
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [bridgeToken, setBridgeToken] = useState<{ token: string; endpoint: string } | null>(null);
   const set = new Set(status?.fieldsSet ?? []);
 
   const act = async (label: string, fn: () => Promise<unknown>, okMsg?: string) => {
@@ -130,6 +131,24 @@ function IntegrationCard({ meta, status, backend, notify, open, onToggle }: {
               <code>{backend.redirectUri()}</code>
             </div>
           )}
+          {meta.bridge && (
+            <div className="bridge-setup">
+              <button type="button" className="btn primary" disabled={!!busy}
+                onClick={() => (!status?.configured || window.confirm('Generate a new bridge token? The current one stops working, so update bridge/config.json afterwards.'))
+                  && act('token', async () => setBridgeToken(await backend.createBridgeToken(meta.id)))}>
+                {busy === 'token' ? 'Generating…' : status?.configured ? 'Generate a new bridge token' : 'Generate bridge token'}
+              </button>
+              {bridgeToken && (
+                <div className="redirect">
+                  <span className="label">bridge/config.json — copy it now, the token is shown only once</span>
+                  <pre className="code-block">{JSON.stringify({ endpoint: bridgeToken.endpoint, token: bridgeToken.token, key: 'YOUR-16-CHAR-MOTION-KEY', gatewayIp: null }, null, 2)}</pre>
+                  <button type="button" className="btn small" onClick={() => navigator.clipboard?.writeText(JSON.stringify({ endpoint: bridgeToken.endpoint, token: bridgeToken.token, key: 'YOUR-16-CHAR-MOTION-KEY', gatewayIp: null }, null, 2)).then(() => notify('Copied.'), () => notify('Copy failed — select the text instead.', 'error'))}>
+                    Copy
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <form className="fields" onSubmit={(e) => { e.preventDefault(); save(); }}>
             {meta.fields.map((f) => (
               <label key={f.key}>
@@ -146,9 +165,11 @@ function IntegrationCard({ meta, status, backend, notify, open, onToggle }: {
               </label>
             ))}
             <div className="btn-row">
-              <button type="submit" className="btn primary" disabled={!!busy || Object.values(values).every((v) => !v.trim())}>
-                {busy === 'save' ? 'Saving…' : 'Save'}
-              </button>
+              {meta.fields.length > 0 && (
+                <button type="submit" className="btn primary" disabled={!!busy || Object.values(values).every((v) => !v.trim())}>
+                  {busy === 'save' ? 'Saving…' : 'Save'}
+                </button>
+              )}
               {meta.oauth && status?.configured && (
                 <button type="button" className="btn" disabled={!!busy} onClick={connect}>
                   {busy === 'connect' ? 'Opening…' : status.connected ? 'Reconnect' : 'Connect'}

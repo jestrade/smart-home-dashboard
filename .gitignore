@@ -9,3 +9,4 @@ ui-debug.log
 .DS_Store
 .firebase/
 *.tsbuildinfo
+bridge/config.json

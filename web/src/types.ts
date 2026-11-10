@@ -1,4 +1,4 @@
-export type ProviderId = 'tuya' | 'volvo' | 'google' | 'homeassistant' | 'wallbox' | 'smartthings' | 'imou' | 'solis';
+export type ProviderId = 'tuya' | 'volvo' | 'google' | 'homeassistant' | 'wallbox' | 'smartthings' | 'imou' | 'solis' | 'motion';
 
 export type DeviceType =
   | 'light' | 'switch' | 'plug' | 'fan' | 'thermostat' | 'sensor'
@@ -6,12 +6,12 @@ export type DeviceType =
 
 export type Capability =
   | 'onoff' | 'brightness' | 'thermostat' | 'mode' | 'lock' | 'cover' | 'climate' | 'honkFlash'
-  | 'snapshot';
+  | 'snapshot' | 'position';
 
 export type Action =
   | 'setOn' | 'setBrightness' | 'setTemperature' | 'setMode'
   | 'lock' | 'unlock' | 'cover' | 'climateStart' | 'climateStop' | 'honkFlash'
-  | 'snapshot';
+  | 'snapshot' | 'setPosition';
 
 export interface DeviceState {
   on?: boolean;
@@ -26,6 +26,8 @@ export interface DeviceState {
   open?: boolean;
   position?: number;
   battery?: number;
+  batteryVolts?: number;
+  rssi?: number;
   motion?: boolean;
   sleeping?: boolean;
   powerW?: number;

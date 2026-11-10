@@ -27,6 +27,7 @@ export function summary(d: Device): string {
   if (s.sleeping) parts.push('Asleep');
   if (s.powerW != null && s.on) parts.push(`${Math.round(s.powerW)} W`);
   if (s.battery != null) parts.push(`🔋${s.battery}%`);
+  if (s.batteryVolts != null) parts.push(`🔋${s.batteryVolts} V`);
   return parts.join(' · ') || (d.type === 'camera' ? 'Camera' : 'Online');
 }
 
@@ -82,6 +83,7 @@ export function DeviceCard({ device, run, pending, onPrefs, rooms, handle }: {
           {(caps.includes('snapshot') || s.imageUrl) && (
             <CameraSnapshot device={device} run={run} disabled={!device.online || pending} />
           )}
+          {caps.includes('position') && <PositionSlider device={device} run={run} disabled={!device.online || pending} />}
           {caps.includes('cover') && (
             <div className="btn-row">
               {(['open', 'stop', 'close'] as const).map((c) => (
@@ -130,6 +132,19 @@ function CameraSnapshot({ device, run, disabled }: { device: Device; run: Run; d
         )}
       </div>
     </div>
+  );
+}
+
+function PositionSlider({ device, run, disabled }: { device: Device; run: Run; disabled: boolean }) {
+  const [v, setV] = useState(device.state.position ?? 0);
+  useEffect(() => setV(device.state.position ?? 0), [device.state.position]);
+  const commit = () => v !== device.state.position && run(device, 'setPosition', v);
+  return (
+    <label className="slider">
+      <span>Position <b>{v === 0 ? 'Closed' : v === 100 ? 'Open' : `${v}% open`}</b></span>
+      <input type="range" min={0} max={100} step={5} value={v} disabled={disabled}
+        onChange={(e) => setV(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} />
+    </label>
   );
 }
 

@@ -42,6 +42,7 @@ function seed(): Device[] {
       days: Array.from({ length: 30 }, (_, i) => ({ day: new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10), kwh: Math.round((22 + 9 * Math.sin(i * 0.9) + (i % 5) * 1.3) * 10) / 10 })),
       inverters: [{ sn: '1031130229100151', model: 'S6-GR1P5K', state: 'Online', kw: 4.25, todayKwh: 18.6, totalKwh: 21300 }],
     } }),
+    d({ id: 'motion_a1b2c3d4e5f60001', provider: 'motion', providerId: 'a1b2c3d4e5f60001', name: 'Motion blind 0001', type: 'cover', model: 'Roller blind', capabilities: ['cover', 'position'], prefs: { room: 'Living room', name: 'Living room blind' }, state: { position: 30, open: true, batteryVolts: 11.95 } }),
     d({ id: 'wallbox_1', provider: 'wallbox', providerId: '9988552', name: 'Pulsar Plus', type: 'charger', model: 'PLP1-M-2-4-9-002-F', suggestedRoom: 'Garage', capabilities: [], state: {
       statusCode: 194, statusLabel: 'Charging', statusGroup: 'charging', on: true, locked: false, chargingPowerKw: 7.2, chargingSpeed: 32,
       maxChargingCurrent: 32, maxAvailableCurrent: 32, currency: '€', energyPrice: 0.24,
@@ -65,6 +66,7 @@ export function createDemoBackend(): Backend {
     homeassistant: { provider: 'homeassistant', configured: true, connected: true, lastSyncAt: now(), deviceCount: 3, fieldsSet: ['baseUrl', 'token'] },
     smartthings: { provider: 'smartthings', configured: true, connected: true, lastSyncAt: now(), deviceCount: 2, fieldsSet: ['clientId', 'clientSecret'] },
     imou: { provider: 'imou', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['appId', 'appSecret'] },
+    motion: { provider: 'motion', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: [] },
     solis: { provider: 'solis', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['keyId', 'keySecret'] },
     wallbox: { provider: 'wallbox', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['email', 'password'] },
   };
@@ -129,6 +131,7 @@ export function createDemoBackend(): Backend {
       if (action === 'climateStart') s.climatizing = true;
       if (action === 'climateStop') s.climatizing = false;
       if (action === 'snapshot') Object.assign(s, { snapshotUrl: '/car/front-three-quarter.webp', snapshotAt: new Date().toISOString() });
+      if (action === 'setPosition') { s.position = value as number; s.open = (value as number) > 0; }
       if (action === 'cover') {
         if (value === 'open') { s.open = true; if (s.position != null) s.position = 100; }
         if (value === 'close') { s.open = false; if (s.position != null) s.position = 0; }
@@ -162,6 +165,7 @@ export function createDemoBackend(): Backend {
       status[provider] = { provider, configured: true, connected: true, lastSyncAt: now(), deviceCount: 0, fieldsSet: Object.keys(config) };
       emit();
     },
+    createBridgeToken: async (provider) => ({ token: `${provider}_demo-token-not-real`, endpoint: `https://us-central1-YOUR-PROJECT.cloudfunctions.net/bridge/${provider}` }),
     connectUrl: async () => {
       throw new Error('Connecting accounts is disabled in demo mode.');
     },

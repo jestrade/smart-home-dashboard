@@ -33,5 +33,7 @@ export interface Backend {
   saveIntegration(provider: ProviderId, config: Record<string, string>): Promise<void>;
   connectUrl(provider: ProviderId): Promise<{ url: string; redirectUri: string }>;
   redirectUri(): string;
+  /** Home bridges (Motion Blinds): new token, shown once. Replaces the previous one. */
+  createBridgeToken(provider: ProviderId): Promise<{ token: string; endpoint: string }>;
   disconnect(provider: ProviderId): Promise<void>;
 }

@@ -16,6 +16,7 @@ export const ACTION_CAPABILITY = {
   climateStop: 'climate',
   honkFlash: 'honkFlash',
   snapshot: 'snapshot',
+  setPosition: 'position',
 };
 
 export function getProvider(id) {

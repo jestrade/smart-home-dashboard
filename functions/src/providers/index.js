@@ -6,6 +6,7 @@ import wallbox from './wallbox.js';
 import smartthings from './smartthings.js';
 import imou from './imou.js';
 import solis from './solis.js';
+import motion from './motion.js';
 
 /** Add a new integration by writing a module with the same shape and registering it here. */
-export const providers = { tuya, volvo, google, homeassistant, wallbox, smartthings, imou, solis };
+export const providers = { tuya, volvo, google, homeassistant, wallbox, smartthings, imou, solis, motion };

@@ -1,0 +1,9 @@
+{
+  "name": "home-dashboard-bridge",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "motion": "node motion-bridge.mjs"
+  }
+}

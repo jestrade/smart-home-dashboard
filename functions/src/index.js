@@ -17,6 +17,8 @@ import {
 } from './lib/service.js';
 import { providers } from './providers/index.js';
 import { confirm, staticResponse, verifySignature } from './lib/smartapp.js';
+import { authenticateBridge, hashToken, newBridgeToken, storeReport, storeResult, takeCommands } from './lib/bridge.js';
+import { sanitize as sanitizeMotion } from './providers/motion.js';
 
 // Prefer IPv4 for outbound calls: Tuya rejects Cloud Run's IPv6 addresses (error 1114).
 dns.setDefaultResultOrder('ipv4first');
@@ -179,10 +181,59 @@ export const sendCommand = onCall({ timeoutSeconds: 60 }, async (req) => {
     setTemperature: () => typeof value === 'number' && value >= 5 && value <= 35,
     setMode: () => typeof value === 'string' && value.length <= 32,
     cover: () => ['open', 'close', 'stop'].includes(value),
+    setPosition: () => Number.isInteger(value) && value >= 0 && value <= 100,
   };
   if (checks[action] && !checks[action]()) throw new HttpsError('invalid-argument', `Invalid value for ${action}.`);
 
   return runCommand({ deviceId, action, value, email });
+});
+
+// ---------- home bridges (LAN-only devices such as Motion Blinds) ----------
+
+const BRIDGE_SANITIZERS = { motion: sanitizeMotion };
+
+/** Generates a new bridge token (shown once). Replaces any previous token. */
+export const createBridgeToken = onCall(async (req) => {
+  const email = await assertMember(req.auth);
+  const { provider } = req.data ?? {};
+  const p = getProvider(provider);
+  if (!p.bridge) throw new HttpsError('invalid-argument', `${provider} does not use a home bridge.`);
+  const token = newBridgeToken(provider);
+  await db.doc(`integrations/${provider}`).set(
+    { bridgeTokenHash: hashToken(token), bridgeTokenCreatedAt: FieldValue.serverTimestamp(), bridgeTokenCreatedBy: email },
+    { merge: true },
+  );
+  await writeStatus(provider, await loadConfig(provider), { lastError: null });
+  return { token, endpoint: `https://${REGION}-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/bridge/${provider}` };
+});
+
+/** The bridge's API: POST /<provider>/report, GET /<provider>/commands, POST /<provider>/result. */
+export const bridge = onRequest({ timeoutSeconds: 30, maxInstances: 2 }, async (req, res) => {
+  const [, provider, route] = (req.path ?? '').split('/');
+  if (!BRIDGE_SANITIZERS[provider] || !['report', 'commands', 'result'].includes(route)) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  if (!(await authenticateBridge(req, provider))) {
+    res.status(401).json({ error: 'Invalid bridge token' });
+    return;
+  }
+  try {
+    if (route === 'report' && req.method === 'POST') {
+      const count = await storeReport(provider, req.body, BRIDGE_SANITIZERS[provider]);
+      await syncProvider(provider);
+      res.json({ ok: true, devices: count });
+    } else if (route === 'commands' && req.method === 'GET') {
+      res.json({ commands: await takeCommands(provider) });
+    } else if (route === 'result' && req.method === 'POST') {
+      res.json({ ok: await storeResult(provider, req.body ?? {}) });
+    } else {
+      res.status(405).json({ error: 'Method not allowed' });
+    }
+  } catch (e) {
+    logger.error(`bridge ${provider}/${route} failed`, e);
+    res.status(500).json({ error: 'Internal error' });
+  }
 });
 
 // ---------- SmartThings SmartApp webhook ----------

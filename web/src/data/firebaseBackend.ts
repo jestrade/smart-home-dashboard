@@ -96,6 +96,7 @@ export function createFirebaseBackend(): Backend {
     saveIntegration: async (provider, config) => {
       await call('saveIntegration', { provider, config });
     },
+    createBridgeToken: (provider) => call<{ token: string; endpoint: string }>('createBridgeToken', { provider }),
     connectUrl: (provider) =>
       call<{ url: string; redirectUri: string }>('getAuthUrl', { provider, appUrl: window.location.origin }),
     redirectUri: () =>

@@ -17,6 +17,8 @@ export interface ProviderMeta {
   oauth: boolean;
   /** Shows the SmartApp webhook URL to register (SmartThings). */
   webhook?: boolean;
+  /** Connected through a home bridge program instead of credentials (Motion Blinds). */
+  bridge?: boolean;
   /** Badge text when credentials are saved but the provider isn't linked yet. */
   pendingLabel?: string;
   docsUrl: string;
@@ -145,6 +147,23 @@ PROVIDERS.push({
     { key: 'appSecret', label: 'AppSecret', secret: true },
     { key: 'endpoint', label: 'Data center', optional: true, placeholder: 'https://openapi-or.easy4ip.com', help: 'openapi-or (Americas, default), openapi-fk (Europe), openapi-sg (Asia) — all .easy4ip.com.' },
   ],
+});
+
+PROVIDERS.push({
+  id: 'motion',
+  name: 'Motion Blinds',
+  blurb: 'Motion Blinds / Coulisse motors through your Motion gateway: open, close, stop and position.',
+  color: '#7a4dd8',
+  oauth: false,
+  bridge: true,
+  pendingLabel: 'Waiting for bridge',
+  docsUrl: 'https://github.com/jestrade/smart-home-dashboard/tree/main/bridge',
+  steps: [
+    'Motion gateways only work on your home network, so a small bridge program runs on an always-on computer at home (Mac, Raspberry Pi…).',
+    'In the Motion Blinds app: Settings → About, tap 5 times, and copy the 16-character key. It stays on your home computer.',
+    'Generate a bridge token below, put it and the key in bridge/config.json, and run: npm run motion (in the bridge folder).',
+  ],
+  fields: [],
 });
 
 PROVIDERS.push({

@@ -50,6 +50,7 @@ Open http://localhost:5173. Demo mode uses sample devices in memory.
 | Volvo | App at developer.volvocars.com: client ID, secret, VCC API key | Register the redirect URI shown in the card, then **Connect**. |
 | Google Nest | Google Cloud OAuth client + Device Access project (US$5 one-time) | Only Nest thermostats/cameras/doorbells are available via Google's cloud API. |
 | Home Assistant | Public URL + long-lived token | The bridge for everything else (Zigbee, Z-Wave, Matter, Hue, Shelly…). |
+| Motion Blinds | Motion key (from the app) + the home bridge in `bridge/` | The gateway API is LAN-only, so `bridge/motion-bridge.mjs` runs at home and relays state and commands. See `bridge/README.md`. |
 
 The OAuth redirect URI is `https://us-central1-<project-id>.cloudfunctions.net/oauthCallback`.
 
