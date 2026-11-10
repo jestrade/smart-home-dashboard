@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icon } from './Icon';
+import { CollapseButton, Section as CollapsibleSection, useCollapsed } from './Collapse';
 import { displayName, type Device } from '../types';
 
 // Read-only view of Wallbox chargers: status, sessions, costs and configuration.
@@ -38,11 +39,10 @@ export function ChargerView({ chargers, onConnect }: { chargers: Device[]; onCon
   return <div className="stack">{chargers.map((c) => <ChargerCard key={c.id} charger={c} />)}</div>;
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="v-section"><h3>{title}</h3>{children}</section>;
-}
+const Section = (p: { title: string; id?: string; children: ReactNode }) => <CollapsibleSection scope="charger" {...p} />;
 
 function ChargerCard({ charger }: { charger: Device }) {
+  const [collapsed, toggleCollapsed] = useCollapsed(`charger:${charger.id}`);
   const s = charger.state;
   // Live status reports cost 0 for finished sessions; the session list has the real cost.
   const latest = s.sessions?.[0];
@@ -73,7 +73,9 @@ function ChargerCard({ charger }: { charger: Device }) {
           </p>
         </div>
         <span className={`charger-icon ${charging ? 'live' : ''}`}><Icon name="charger" size={52} /></span>
+        <CollapseButton collapsed={collapsed} onToggle={toggleCollapsed} label={displayName(charger)} />
       </header>
+      {!collapsed && (<>
 
       <div className="stats">
         <div className="stat">
@@ -140,6 +142,7 @@ function ChargerCard({ charger }: { charger: Device }) {
           {s.software && <><span>Firmware</span><b>{s.software.current}{s.software.updateAvailable ? ` → ${s.software.latest}` : ' (up to date)'}</b></>}
         </div>
       </Section>
+      </>)}
     </article>
   );
 }

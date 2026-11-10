@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { CollapseButton, Section as CollapsibleSection, useCollapsed } from './Collapse';
 import { displayName, type Device } from '../types';
 import { profileFor, type CarProfile } from '../carProfiles';
 
@@ -53,14 +54,7 @@ export function VehicleView({ vehicles, onConnect }: { vehicles: Device[]; onCon
   return <div className="stack">{vehicles.map((v) => <VehicleCard key={v.id} car={v} />)}</div>;
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="v-section">
-      <h3>{title}</h3>
-      {children}
-    </section>
-  );
-}
+const Section = (p: { title: string; id?: string; children: ReactNode }) => <CollapsibleSection scope="car" {...p} />;
 
 function Stat({ label, value, unit, children }: { label: string; value: ReactNode; unit?: string; children?: ReactNode }) {
   return (
@@ -115,6 +109,7 @@ function Gallery({ profile }: { profile: CarProfile }) {
 }
 
 function VehicleCard({ car }: { car: Device }) {
+  const [collapsed, toggleCollapsed] = useCollapsed(`car:${car.id}`);
   const s = car.state;
   const profile = profileFor(car);
   const name = car.prefs?.name || (profile ? `${profile.name} ${profile.year}` : displayName(car));
@@ -131,7 +126,7 @@ function VehicleCard({ car }: { car: Device }) {
 
   return (
     <article className="card vehicle">
-      {profile && <Gallery profile={profile} />}
+      {profile && !collapsed && <Gallery profile={profile} />}
       <header className="vehicle-head">
         <div>
           <h2>{name}</h2>
@@ -146,7 +141,9 @@ function VehicleCard({ car }: { car: Device }) {
           <p className="fine">VIN {car.providerId}{reported && ` · reported ${reported}`}</p>
         </div>
         {profile ? null : s.imageUrl ? <img className="car-img" src={s.imageUrl} alt="" /> : <span className="car-icon"><Icon name="vehicle" size={56} /></span>}
+        <CollapseButton collapsed={collapsed} onToggle={toggleCollapsed} label={name} />
       </header>
+      {!collapsed && (<>
 
       <div className="stats">
         {s.batteryPercent != null && (
@@ -272,6 +269,7 @@ function VehicleCard({ car }: { car: Device }) {
       {unavailable.length > 0 && (
         <p className="fine">Not provided by Volvo for this app: {unavailable.map((u) => UNAVAILABLE_LABELS[u]).join('; ')}.</p>
       )}
+      </>)}
     </article>
   );
 }

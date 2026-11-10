@@ -1,30 +1,11 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
+import { useStored } from './Collapse';
 import { PROVIDERS, type ProviderMeta } from '../providers';
 import type { Backend } from '../data';
 import type { IntegrationStatus, ProviderId } from '../types';
 
 type Filter = 'all' | 'connected' | 'disconnected';
-
-/** Per-browser UI memory (which cards are open, which filter). Never required for the page to work. */
-function useStored<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : initial;
-    } catch {
-      return initial;
-    }
-  });
-  // Functional updates so rapid clicks build on the latest state instead of a stale copy.
-  const update = (next: T | ((prev: T) => T)) =>
-    setValue((prev) => {
-      const v = typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-      try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* storage unavailable */ }
-      return v;
-    });
-  return [value, update] as const;
-}
 
 export function IntegrationsView({ backend, status, notify }: {
   backend: Backend;

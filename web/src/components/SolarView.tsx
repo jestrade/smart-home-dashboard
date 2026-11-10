@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { CollapseButton, Section as CollapsibleSection, useCollapsed } from './Collapse';
 import { displayName, type Device } from '../types';
 
 // Read-only view of SolisCloud stations: live power, today's curve, last 30 days, inverters.
@@ -146,9 +147,7 @@ function DailyBars({ days }: { days: { day: string; kwh: number }[] }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="v-section"><h3>{title}</h3>{children}</section>;
-}
+const Section = (p: { title: string; id?: string; children: ReactNode }) => <CollapsibleSection scope="solar" {...p} />;
 
 export function SolarView({ stations, onConnect }: { stations: Device[]; onConnect: () => void }) {
   if (stations.length === 0) {
@@ -164,6 +163,7 @@ export function SolarView({ stations, onConnect }: { stations: Device[]; onConne
 }
 
 function StationCard({ station }: { station: Device }) {
+  const [collapsed, toggleCollapsed] = useCollapsed(`solar:${station.id}`);
   const s = station.state;
   const f = s.flow ?? {};
   const g = s.todayGrid ?? {};
@@ -185,7 +185,9 @@ function StationCard({ station }: { station: Device }) {
           {s.reportedAt && <p className="fine">Reported {new Date(s.reportedAt).toLocaleString()}</p>}
         </div>
         <span className={`charger-icon ${s.powerKw ? 'sun-live' : ''}`}><Icon name="sun" size={52} /></span>
+        <CollapseButton collapsed={collapsed} onToggle={toggleCollapsed} label={displayName(station)} />
       </header>
+      {!collapsed && (<>
 
       <div className="stats">
         <div className="stat">
@@ -225,7 +227,7 @@ function StationCard({ station }: { station: Device }) {
       )}
 
       {s.days && s.days.length > 0 && (
-        <Section title={`Daily energy · last ${s.days.length} days · ${energy(sumDays)}`}>
+        <Section id="daily" title={`Daily energy · last ${s.days.length} days · ${energy(sumDays)}`}>
           <DailyBars days={s.days} />
           <details className="data-table">
             <summary>Show data</summary>
@@ -249,6 +251,7 @@ function StationCard({ station }: { station: Device }) {
           </div>
         </Section>
       )}
+      </>)}
     </article>
   );
 }

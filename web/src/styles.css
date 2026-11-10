@@ -20,8 +20,9 @@
   --radius: 16px;
   color-scheme: light;
 }
+/* Dark theme: follows the system unless the user picked Light; always on when they picked Dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f1115;
     --surface: #181b21;
     --surface-2: #22262e;
@@ -42,6 +43,27 @@
     --shadow: none;
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115;
+  --surface: #181b21;
+  --surface-2: #22262e;
+  --border: #2b3039;
+  --text: #e8eaee;
+  --muted: #9198a3;
+  --accent: #6e93ff;
+  --accent-soft: #1f2a48;
+  --accent-text: #0b1020;
+  --active: #f5b544;
+  --active-soft: #3a2d14;
+  --ok: #4cc685;
+  --ok-soft: #173525;
+  --warn: #f07272;
+  --warn-soft: #3d1c1c;
+  --info: #6aaaf0;
+  --info-soft: #172c45;
+  --shadow: none;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -287,7 +309,8 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 
 /* ---------- solar charts ---------- */
 :root { --chart: #3b6cf6; }
-@media (prefers-color-scheme: dark) { :root { --chart: #5a86ff; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chart: #5a86ff; } }
+:root[data-theme="dark"] { --chart: #5a86ff; }
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; overflow: visible; }
 .chart .grid { stroke: var(--border); stroke-width: 1; }
@@ -375,3 +398,25 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 .loc-results button { width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
 .loc-results button:hover { background: var(--surface-2); }
 @media (max-width: 720px) { .widgets { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .widget.calendar { grid-column: 1 / -1; } .weather-kv { margin-left: 0; } .clock-time { font-size: 36px; } .date-day { font-size: 42px; } }
+
+/* ---------- collapsible panels ---------- */
+.collapse-btn { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin-left: auto; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.collapse-btn:hover, .collapse-btn:focus-visible { background: var(--surface-2); color: var(--text); }
+.collapse-btn svg { transition: transform .15s; }
+.collapse-btn.open svg { transform: rotate(180deg); }
+.section-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 2px 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; }
+.section-toggle .chevron { margin-left: auto; }
+.section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.v-section.collapsed h3 { margin-bottom: -4px; }
+.widget-head { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.widget-head .label { flex: none; }
+.widget-summary { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; font-size: 14px; }
+.widget-body { display: grid; gap: 6px; }
+.widget.collapsed { padding: 10px 16px; }
+.widgets-section { margin-bottom: 8px; }
+.widgets-title { margin-top: 0; }
+.widgets-title .widget-summary { font-weight: 500; color: var(--muted); }
+.date-weekday { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.vehicle-head .collapse-btn { align-self: flex-start; margin-left: 4px; }
+.theme-btn { width: auto; padding: 0 10px; gap: 6px; font-size: 13px; }
+@media (max-width: 720px) { .theme-label { display: none; } .theme-btn { width: 38px; padding: 0; } }

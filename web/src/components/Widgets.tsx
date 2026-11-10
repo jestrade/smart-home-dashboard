@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { CollapseButton, useCollapsed } from './Collapse';
 import type { HomeLayout, WeatherLocation } from '../types';
 
 // Home page widgets: clock, date, calendar and weather (Open-Meteo, no API key needed).
@@ -33,30 +34,49 @@ function firstDayOfWeek() {
   }
 }
 
+/** Frame shared by all widgets: title row with a collapse chevron; a one-line summary when collapsed. */
+function WidgetShell({ id, title, summary, className, children, actions }: {
+  id: string; title: string; summary: string; className: string; children: ReactNode; actions?: ReactNode;
+}) {
+  const [collapsed, toggle] = useCollapsed(`widget:${id}`);
+  const bodyId = useId();
+  return (
+    <section className={`card widget ${className} ${collapsed ? 'collapsed' : ''}`} aria-label={title}>
+      <div className="widget-head">
+        <span className="label">{title}</span>
+        {collapsed && <span className="widget-summary">{summary}</span>}
+        {!collapsed && actions}
+        <CollapseButton collapsed={collapsed} onToggle={toggle} label={title} controls={bodyId} />
+      </div>
+      {!collapsed && <div id={bodyId} className="widget-body">{children}</div>}
+    </section>
+  );
+}
+
 function ClockWidget({ now }: { now: Date }) {
   const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const seconds = String(now.getSeconds()).padStart(2, '0');
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return (
-    <section className="card widget clock" aria-label="Clock">
-      <span className="label">Time</span>
+    <WidgetShell id="clock" title="Time" summary={time} className="clock">
       <div className="clock-time" aria-live="off">
         <span>{time}</span>
         <span className="clock-seconds">{seconds}</span>
       </div>
       <span className="fine">{tz.replace(/_/g, ' ')}</span>
-    </section>
+    </WidgetShell>
   );
 }
 
 function DateWidget({ now }: { now: Date }) {
   return (
-    <section className="card widget date" aria-label="Date">
-      <span className="label">{now.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+    <WidgetShell id="date" title="Date" className="date"
+      summary={now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}>
+      <span className="date-weekday">{now.toLocaleDateString(undefined, { weekday: 'long' })}</span>
       <div className="date-day">{now.getDate()}</div>
       <div className="date-month">{now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</div>
       <span className="fine">Week {isoWeek(now)} · day {dayOfYear(now)} of the year</span>
-    </section>
+    </WidgetShell>
   );
 }
 
@@ -75,7 +95,8 @@ function CalendarWidget({ now }: { now: Date }) {
     d != null && offset === 0 && d === now.getDate();
 
   return (
-    <section className="card widget calendar" aria-label="Calendar">
+    <WidgetShell id="calendar" title="Calendar" className="calendar"
+      summary={now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}>
       <div className="cal-head">
         <button className="btn ghost small" onClick={() => setOffset(offset - 1)} aria-label="Previous month">‹</button>
         <button className="cal-title" onClick={() => setOffset(0)} title="Back to this month">
@@ -92,7 +113,7 @@ function CalendarWidget({ now }: { now: Date }) {
           </span>
         ))}
       </div>
-    </section>
+    </WidgetShell>
   );
 }
 
@@ -215,11 +236,10 @@ function WeatherWidget({ location, onLocation }: { location?: WeatherLocation; o
 
   if (!location || picking) {
     return (
-      <section className="card widget weather" aria-label="Weather">
-        <span className="label">Weather</span>
+      <WidgetShell id="weather" title="Weather" summary="Choose a location" className="weather">
         <p className="fine">Choose the location for the forecast. It is saved for everyone in the household.</p>
         <LocationPicker onPick={pick} onCancel={location ? () => setPicking(false) : undefined} />
-      </section>
+      </WidgetShell>
     );
   }
 
@@ -229,11 +249,9 @@ function WeatherWidget({ location, onLocation }: { location?: WeatherLocation; o
   const time = (iso: string) => iso.slice(11, 16);
 
   return (
-    <section className="card widget weather" aria-label={`Weather in ${location.name}`}>
-      <div className="weather-head">
-        <span className="label">Weather · {location.name}</span>
-        <button className="btn ghost small" onClick={() => setPicking(true)}>Change</button>
-      </div>
+    <WidgetShell id="weather" title={`Weather · ${location.name}`} className="weather"
+      summary={c ? `${round(c.temperature_2m)}° ${label}` : 'Loading…'}
+      actions={<button className="btn ghost small" onClick={() => setPicking(true)}>Change</button>}>
       {error && <p className="error-text">{error}</p>}
       {!data && !error && <p className="fine">Loading forecast…</p>}
       {data && c && (
@@ -286,19 +304,36 @@ function WeatherWidget({ location, onLocation }: { location?: WeatherLocation; o
           <p className="fine">Forecast: Open-Meteo.com</p>
         </>
       )}
-    </section>
+    </WidgetShell>
   );
 }
 
 export function Widgets({ layout, onLayout }: { layout: HomeLayout; onLayout: (l: HomeLayout) => void }) {
   const now = useNow();
   const setWeather = (weather: WeatherLocation) => onLayout({ ...layout, widgets: { ...layout.widgets, weather } });
+  const [collapsed, toggle] = useCollapsed('widgets');
+  const gridId = useId();
   return (
-    <div className="widgets">
-      <ClockWidget now={now} />
-      <DateWidget now={now} />
-      <CalendarWidget now={now} />
-      <WeatherWidget location={layout.widgets?.weather} onLocation={setWeather} />
-    </div>
+    <section className="widgets-section">
+      <h2 className="section-title widgets-title">
+        <button type="button" className="section-toggle" onClick={toggle} aria-expanded={!collapsed} aria-controls={gridId}>
+          <span>Today</span>
+          {collapsed && (
+            <span className="widget-summary">
+              {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · {now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
+          )}
+          <span className={`chevron ${collapsed ? '' : 'open'}`}><Icon name="chevron" size={16} /></span>
+        </button>
+      </h2>
+      {!collapsed && (
+        <div className="widgets" id={gridId}>
+          <ClockWidget now={now} />
+          <DateWidget now={now} />
+          <CalendarWidget now={now} />
+          <WeatherWidget location={layout.widgets?.weather} onLocation={setWeather} />
+        </div>
+      )}
+    </section>
   );
 }

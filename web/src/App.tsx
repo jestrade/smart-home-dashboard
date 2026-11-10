@@ -8,6 +8,7 @@ import { SolarView } from './components/SolarView';
 import { IntegrationsView } from './components/IntegrationsView';
 import { ActivityView } from './components/ActivityView';
 import { Icon } from './components/Icon';
+import { useStored } from './components/Collapse';
 import type { Run } from './components/DeviceCard';
 import { providerMeta } from './providers';
 import type {
@@ -26,8 +27,27 @@ const TABS: { id: Tab; label: string; short?: string; icon: string }[] = [
 
 interface Toast { id: number; msg: string; kind: 'ok' | 'error' }
 
+type Theme = 'system' | 'light' | 'dark';
+const THEME_NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
+const THEME_ICON: Record<Theme, string> = { system: 'monitor', light: 'sun', dark: 'moon' };
+const THEME_LABEL: Record<Theme, string> = { system: 'System', light: 'Light', dark: 'Dark' };
+
+/** System follows the device; Light/Dark override it. Saved per browser (applied early by index.html). */
+function useTheme() {
+  const [theme, setTheme] = useStored<Theme>('theme', 'system');
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'system') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', theme);
+    const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f1115' : '#f4f5f7');
+  }, [theme]);
+  return [theme, () => setTheme((t) => THEME_NEXT[t])] as const;
+}
+
 export default function App() {
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
+  const [theme, cycleTheme] = useTheme();
   const [access, setAccess] = useState<AccessStatus | 'loading' | 'error'>('loading');
   const [tab, setTab] = useState<Tab>(() => {
     try { return (localStorage.getItem('tab') as Tab) || 'home'; } catch { return 'home'; }
@@ -145,6 +165,11 @@ export default function App() {
           ))}
         </nav>
         <div className="top-actions">
+          <button className="btn icon theme-btn" onClick={cycleTheme}
+            aria-label={`Theme: ${THEME_LABEL[theme]}. Switch to ${THEME_LABEL[THEME_NEXT[theme]]}`} title={`Theme: ${THEME_LABEL[theme]}`}>
+            <Icon name={THEME_ICON[theme] as 'sun'} size={18} />
+            <span className="theme-label">{THEME_LABEL[theme]}</span>
+          </button>
           <button className={`btn icon ${syncing ? 'spin' : ''}`} onClick={syncAll} disabled={syncing} aria-label="Sync all devices" title="Sync all">
             <Icon name="refresh" size={18} />
           </button>
