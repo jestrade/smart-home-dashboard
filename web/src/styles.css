@@ -424,3 +424,43 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 /* ---------- home bridge setup ---------- */
 .bridge-setup { display: grid; gap: 10px; justify-items: start; }
 .code-block { margin: 0; padding: 12px; border-radius: 10px; background: var(--surface-2); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-width: 100%; }
+
+/* ---------- blurred photo background (per theme) ---------- */
+:root {
+  --bg-image: url('/bg/light.jpg');
+  --bg-pos: center 20%;
+  --bg-veil: rgba(244, 245, 247, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg-image: url('/bg/dark.jpg'); --bg-pos: center; --bg-veil: rgba(15, 17, 21, 0.58); }
+}
+:root[data-theme="dark"] { --bg-image: url('/bg/dark.jpg'); --bg-pos: center; --bg-veil: rgba(15, 17, 21, 0.58); }
+
+/* Photo layer, blurred and slightly enlarged so the blur never shows soft edges. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -48px;
+  z-index: -2;
+  background: var(--bg-image) var(--bg-pos, center) / cover no-repeat;
+  filter: blur(14px) saturate(1.15);
+  transform: translateZ(0);
+}
+/* Veil over the photo so text and cards stay readable. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg-veil);
+}
+/* The top bar lets the photo show through; cards stay solid. */
+.topbar { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+@media (max-width: 720px) {
+  .topbar { background: color-mix(in srgb, var(--bg) 82%, transparent); }
+  .tabs { background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px); }
+}
+@media (prefers-reduced-transparency: reduce) { body::before, body::after { display: none; } }
+/* Text that sits directly on the photo (not inside a card) needs more contrast. */
+.drag-hint, .content > .empty, .content > .empty p { color: var(--text); opacity: .8; text-shadow: 0 1px 2px var(--bg); }
+.section-title { text-shadow: 0 1px 2px var(--bg); }
