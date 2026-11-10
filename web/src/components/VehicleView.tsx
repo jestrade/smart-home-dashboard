@@ -121,7 +121,9 @@ function VehicleCard({ car }: { car: Device }) {
   const c = s.charge ?? {};
   const t = s.trip ?? {};
   const h = s.health ?? {};
-  const warnings = s.warnings ?? [];
+  // Electric cars: no engine oil, engine status or fuel; the "tank lid" is the charge port.
+  const isEV = profile?.powertrain === 'Pure electric' || (s.batteryPercent != null && s.fuelLiters == null && t.avgFuelLPer100km == null);
+  const warnings = (s.warnings ?? []).filter((w) => !(isEV && w.name === 'oil'));
   // An electric car has no fuel endpoint; don't report that as missing.
   const unavailable = (s.unavailable ?? []).filter(
     (u) => UNAVAILABLE_LABELS[u] && !(u === 'fuel' && s.batteryPercent != null) && !(u === 'details' && profile),
@@ -139,7 +141,7 @@ function VehicleCard({ car }: { car: Device }) {
             <span className={`badge ${s.locked == null ? 'muted' : s.locked ? 'ok' : 'warn'}`}>
               {s.locked == null ? 'Lock unknown' : s.locked ? 'Locked' : 'Unlocked'}
             </span>
-            {s.engineRunning != null && <span className={`badge ${s.engineRunning ? 'info' : 'muted'}`}>{s.engineRunning ? 'Engine running' : 'Engine off'}</span>}
+            {!isEV && s.engineRunning != null && <span className={`badge ${s.engineRunning ? 'info' : 'muted'}`}>{s.engineRunning ? 'Engine running' : 'Engine off'}</span>}
             {s.charging && <span className={`badge ${chargingActive ? 'info' : 'muted'}`}>{words(s.charging)}</span>}
             {warnings.length > 0 && <span className="badge warn">{warnings.length} warning{warnings.length > 1 ? 's' : ''}</span>}
           </div>
@@ -220,7 +222,7 @@ function VehicleCard({ car }: { car: Device }) {
       <div className="v-grid">
         {s.doors && (
           <Section title="Doors">
-            <StatusList items={[['Central lock', s.locked == null ? undefined : s.locked ? 'LOCKED' : 'UNLOCKED'], ...Object.entries(s.doors).map(([k, v]) => [words(k.replace(/Door$/, '')), v] as [string, string])]} />
+            <StatusList items={[['Central lock', s.locked == null ? undefined : s.locked ? 'LOCKED' : 'UNLOCKED'], ...Object.entries(s.doors).map(([k, v]) => [isEV && k === 'tankLid' ? 'Charge port' : words(k.replace(/Door$/, '')), v] as [string, string])]} />
           </Section>
         )}
         {s.windows && (
@@ -240,7 +242,7 @@ function VehicleCard({ car }: { car: Device }) {
         )}
         <Section title="Health">
           <StatusList items={[
-            ['Engine oil', h.oil],
+            ...(isEV ? [] : [['Engine oil', h.oil] as [string, string | undefined]]),
             ['Coolant', h.coolant],
             ['Brake fluid', h.brakeFluid],
             ...(h.washerFluid ? [['Washer fluid', h.washerFluid] as [string, string]] : []),
