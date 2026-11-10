@@ -153,5 +153,11 @@ export interface AppUser {
 
 export type AccessStatus = 'member' | 'unclaimed' | 'denied';
 
+/** Home page arrangement: room order and per-section card order (device ids). */
+export interface HomeLayout {
+  rooms: string[];
+  order: Record<string, string[]>;
+}
+
 export const displayName = (d: Device) => d.prefs?.name || d.name;
 export const roomOf = (d: Device) => d.prefs?.room || d.suggestedRoom || 'Unassigned';

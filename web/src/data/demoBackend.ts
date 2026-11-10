@@ -1,5 +1,5 @@
 import type { Backend } from './backend';
-import type { ActivityEvent, AppUser, Device, IntegrationStatus, ProviderId } from '../types';
+import type { ActivityEvent, AppUser, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
 
 // In-memory backend with sample devices so the UI can be explored without any accounts.
 
@@ -71,6 +71,8 @@ export function createDemoBackend(): Backend {
   const deviceSubs = new Set<(x: Device[]) => void>();
   const statusSubs = new Set<(x: typeof status) => void>();
   const eventSubs = new Set<(x: ActivityEvent[]) => void>();
+  let layout: HomeLayout = { rooms: [], order: {} };
+  const layoutSubs = new Set<(x: HomeLayout) => void>();
   const emit = () => {
     deviceSubs.forEach((cb) => cb(devices));
     statusSubs.forEach((cb) => cb({ ...status }));
@@ -138,6 +140,15 @@ export function createDemoBackend(): Backend {
     updatePrefs: async (id, prefs) => {
       patch(id, (x) => ({ ...x, prefs }));
       emit();
+    },
+    subscribeLayout: (cb) => {
+      layoutSubs.add(cb);
+      cb(layout);
+      return () => layoutSubs.delete(cb);
+    },
+    saveLayout: async (next) => {
+      layout = next;
+      layoutSubs.forEach((cb) => cb(layout));
     },
     sync: async (provider) => {
       await wait(700);

@@ -11,7 +11,7 @@ import { Icon } from './components/Icon';
 import type { Run } from './components/DeviceCard';
 import { providerMeta } from './providers';
 import type {
-  AccessStatus, ActivityEvent, AppUser, Device, DevicePrefs, IntegrationStatus, ProviderId,
+  AccessStatus, ActivityEvent, AppUser, Device, DevicePrefs, HomeLayout, IntegrationStatus, ProviderId,
 } from './types';
 
 type Tab = 'home' | 'vehicle' | 'charger' | 'solar' | 'integrations' | 'activity';
@@ -35,6 +35,7 @@ export default function App() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [status, setStatus] = useState<Partial<Record<ProviderId, IntegrationStatus>>>({});
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [layout, setLayout] = useState<HomeLayout>({ rooms: [], order: {} });
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -66,6 +67,7 @@ export default function App() {
       backend.subscribeDevices(setDevices, (e) => notify(e.message, 'error')),
       backend.subscribeStatus(setStatus),
       backend.subscribeEvents(setEvents),
+      backend.subscribeLayout(setLayout),
     ];
     return () => unsubs.forEach((u) => u());
   }, [member, notify]);
@@ -91,6 +93,11 @@ export default function App() {
     } finally {
       setPending((p) => { const n = new Set(p); n.delete(device.id); return n; });
     }
+  }, [notify]);
+
+  const onLayout = useCallback((next: HomeLayout) => {
+    setLayout(next); // show the new order immediately
+    backend.saveLayout(next).catch((e) => notify(`Could not save the layout: ${e.message}`, 'error'));
   }, [notify]);
 
   const onPrefs = useCallback((id: string, prefs: DevicePrefs) => {
@@ -150,7 +157,7 @@ export default function App() {
       </header>
 
       <main className="content">
-        {tab === 'home' && <HomeView devices={devices} run={run} pending={pending} onPrefs={onPrefs} onConnect={() => go('integrations')} />}
+        {tab === 'home' && <HomeView devices={devices} run={run} pending={pending} onPrefs={onPrefs} onConnect={() => go('integrations')} layout={layout} onLayout={onLayout} />}
         {tab === 'vehicle' && <VehicleView vehicles={vehicles} onConnect={() => go('integrations')} />}
         {tab === 'charger' && <ChargerView chargers={chargers} onConnect={() => go('integrations')} />}
         {tab === 'solar' && <SolarView stations={stations} onConnect={() => go('integrations')} />}

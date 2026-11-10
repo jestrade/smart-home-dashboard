@@ -4,11 +4,11 @@ import {
 } from 'firebase/auth';
 import {
   Timestamp, collection, connectFirestoreEmulator, doc, getFirestore, limit, onSnapshot, orderBy, query,
-  updateDoc,
+  serverTimestamp, setDoc, updateDoc,
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import type { Backend, SyncResult } from './backend';
-import type { AccessStatus, ActivityEvent, Device, IntegrationStatus, ProviderId } from '../types';
+import type { AccessStatus, ActivityEvent, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
 
 const REGION = 'us-central1';
 
@@ -80,6 +80,14 @@ export function createFirebaseBackend(): Backend {
     },
     updatePrefs: async (deviceId, prefs) => {
       await updateDoc(doc(db, 'devices', deviceId), { prefs });
+    },
+    subscribeLayout: (cb) =>
+      onSnapshot(doc(db, 'layout', 'home'), (snap) => {
+        const d = snap.data() as Partial<HomeLayout> | undefined;
+        cb({ rooms: d?.rooms ?? [], order: d?.order ?? {} });
+      }),
+    saveLayout: async (layout) => {
+      await setDoc(doc(db, 'layout', 'home'), { rooms: layout.rooms, order: layout.order, updatedAt: serverTimestamp() });
     },
     sync: async (provider) => (await call<{ results: SyncResult[] }>('syncDevices', { provider })).results,
 

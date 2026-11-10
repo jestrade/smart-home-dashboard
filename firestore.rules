@@ -25,6 +25,15 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prefs']);
     }
 
+    // Home page arrangement (room order and card order), shared by the household.
+    match /layout/home {
+      allow read: if isMember();
+      allow write: if isMember()
+        && request.resource.data.keys().hasOnly(['rooms', 'order', 'updatedAt'])
+        && request.resource.data.rooms is list && request.resource.data.rooms.size() <= 100
+        && request.resource.data.order is map && request.resource.data.order.size() <= 101;
+    }
+
     match /integrationStatus/{provider} {
       allow read: if isMember();
     }

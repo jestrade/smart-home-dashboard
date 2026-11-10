@@ -1,5 +1,5 @@
 import type {
-  AccessStatus, Action, ActivityEvent, AppUser, Device, DevicePrefs, IntegrationStatus, ProviderId,
+  AccessStatus, Action, ActivityEvent, AppUser, Device, DevicePrefs, HomeLayout, IntegrationStatus, ProviderId,
 } from '../types';
 
 export type Unsubscribe = () => void;
@@ -26,6 +26,8 @@ export interface Backend {
 
   sendCommand(deviceId: string, action: Action, value?: unknown): Promise<void>;
   updatePrefs(deviceId: string, prefs: DevicePrefs): Promise<void>;
+  subscribeLayout(cb: (layout: HomeLayout) => void): Unsubscribe;
+  saveLayout(layout: HomeLayout): Promise<void>;
   sync(provider?: ProviderId): Promise<SyncResult[]>;
 
   saveIntegration(provider: ProviderId, config: Record<string, string>): Promise<void>;

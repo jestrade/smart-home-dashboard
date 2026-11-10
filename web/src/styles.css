@@ -321,3 +321,19 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 .chevron.open { transform: rotate(180deg); }
 
 .eyebrow { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- drag & drop on Home ---------- */
+.sortable { touch-action: manipulation; -webkit-touch-callout: none; }
+.sortable.dragging { opacity: .35; }
+.room.dragging { opacity: .5; }
+.grip { flex: none; display: grid; place-items: center; width: 22px; height: 28px; margin-left: -6px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: grab; opacity: .55; }
+.grip svg { stroke-width: 3.2; }
+.grip:hover, .grip:focus-visible { opacity: 1; background: var(--surface-2); }
+.grip:active { cursor: grabbing; }
+.section-title .grip { margin-left: -4px; }
+.grid.drop-over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius); }
+.grid:empty { min-height: 64px; border: 1px dashed var(--border); border-radius: var(--radius); }
+.drag-overlay { box-shadow: 0 12px 32px rgba(0,0,0,.25); cursor: grabbing; transform: rotate(1.5deg); }
+.room-overlay { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.2); font-weight: 650; }
+.drag-hint { margin: 0 0 4px; }
+@media (hover: none) { .grip { opacity: .8; } }

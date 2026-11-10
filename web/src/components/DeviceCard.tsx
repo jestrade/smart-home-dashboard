@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type HTMLAttributes } from 'react';
 import { Icon } from './Icon';
 import { Toggle } from './Toggle';
 import { providerMeta } from '../providers';
@@ -32,9 +32,11 @@ export function summary(d: Device): string {
 const isActive = (d: Device) =>
   d.online && (d.state.on === true || d.state.locked === false || (d.type === 'thermostat' && !!d.state.hvac && d.state.hvac !== 'OFF') || (d.type === 'cover' && (d.state.open || (d.state.position ?? 0) > 0)));
 
-export function DeviceCard({ device, run, pending, onPrefs, rooms }: {
+export function DeviceCard({ device, run, pending, onPrefs, rooms, handle }: {
   device: Device; run: Run; pending: boolean; rooms: string[];
   onPrefs: (id: string, prefs: DevicePrefs) => void;
+  /** Drag-handle attributes when the card is sortable (keyboard dragging starts here). */
+  handle?: HTMLAttributes<HTMLButtonElement>;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -46,7 +48,12 @@ export function DeviceCard({ device, run, pending, onPrefs, rooms }: {
   return (
     <article className={`card device ${isActive(device) ? 'active' : ''} ${device.online ? '' : 'offline'} ${pending ? 'pending' : ''}`}>
       <div className="device-head" role="button" tabIndex={0} aria-expanded={open}
-        onClick={() => setOpen(!open)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setOpen(!open))}>
+        onClick={() => setOpen(!open)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setOpen(!open))}>
+        {handle && (
+          <button className="grip" data-dnd-handle aria-label={`Move ${name}`} {...handle} onClick={(e) => e.stopPropagation()}>
+            <Icon name="grip" size={16} />
+          </button>
+        )}
         <span className="device-icon"><Icon name={device.type} /></span>
         <div className="device-text">
           <div className="device-name">{name}{device.prefs?.favorite && <span className="fav" aria-label="Favorite">★</span>}</div>

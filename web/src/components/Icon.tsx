@@ -12,6 +12,7 @@ const PATHS: Record<string, string> = {
   cover: 'M4 4h16M6 4v16M18 4v16M6 8h12M6 12h12M6 16h12',
   camera: 'M3 7h4l2-3h6l2 3h4v12H3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
   vehicle: 'M5 17h14v-5l-2-5H7l-2 5v5Zm0 0v2m14-2v2M5 12h14M8 14.5h.01M16 14.5h.01',
+  grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   chevron: 'm6 9 6 6 6-6',
   sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   charger: 'M6 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M4 21h14M16 9h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V8l-2-2M11.5 7 9 11.5h3L9.5 16',
