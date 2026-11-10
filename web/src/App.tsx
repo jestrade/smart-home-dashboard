@@ -151,12 +151,12 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark"><Icon name="home" /></span>
-          <span>Home</span>
+          <span className="brand-name">Smart Home</span>
           {backend.mode === 'demo' && <span className="badge info">Demo</span>}
         </div>
         <nav className="tabs" aria-label="Sections">
           {TABS.map((t) => (
-            <button key={t.id} className={`tab ${tab === t.id ? 'selected' : ''}`} aria-current={tab === t.id ? 'page' : undefined} onClick={() => go(t.id)}>
+            <button key={t.id} className={`tab ${tab === t.id ? 'selected' : ''}`} aria-current={tab === t.id ? 'page' : undefined} aria-label={t.label} title={t.label} onClick={() => go(t.id)}>
               <Icon name={t.icon as 'home'} size={18} />
               <span className={t.short ? 'label-long' : undefined}>{t.label}</span>
               {t.short && <span className="label-short">{t.short}</span>}
@@ -168,7 +168,6 @@ export default function App() {
           <button className="btn icon theme-btn" onClick={cycleTheme}
             aria-label={`Theme: ${THEME_LABEL[theme]}. Switch to ${THEME_LABEL[THEME_NEXT[theme]]}`} title={`Theme: ${THEME_LABEL[theme]}`}>
             <Icon name={THEME_ICON[theme] as 'sun'} size={18} />
-            <span className="theme-label">{THEME_LABEL[theme]}</span>
           </button>
           <button className={`btn icon ${syncing ? 'spin' : ''}`} onClick={syncAll} disabled={syncing} aria-label="Sync all devices" title="Sync all">
             <Icon name="refresh" size={18} />

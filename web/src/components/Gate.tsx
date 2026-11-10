@@ -19,7 +19,7 @@ export function Gate({ backend, user, access, onClaimed }: {
     <div className="gate">
       <div className="card gate-card">
         <span className="brand-mark"><Icon name="home" size={28} /></span>
-        <h1>Home Dashboard</h1>
+        <h1>Smart Home</h1>
         {!user && (
           <>
             <p>Sign in to control your lights, thermostat, locks and car.</p>
