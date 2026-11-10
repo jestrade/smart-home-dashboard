@@ -287,6 +287,10 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 .gallery-main { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0; background: #e9eaec; display: block; }
 .gallery-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 20px; flex-wrap: wrap; }
 .thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 0 20px 4px; scrollbar-width: thin; }
+/* Inside the collapsible Photos section: no full-bleed edges. */
+.v-section .gallery { margin: 0; }
+.v-section .gallery-main { border-radius: 12px; }
+.v-section .gallery-bar, .v-section .thumbs { padding-left: 0; padding-right: 0; }
 .thumb { flex: none; width: 88px; aspect-ratio: 3 / 2; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; cursor: pointer; background: none; opacity: .7; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb.selected { border-color: var(--accent); opacity: 1; }
@@ -479,3 +483,39 @@ body::after {
 @media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .grid > * { min-width: 0; }
 @media (min-width: 721px) and (max-width: 900px) { .topbar { padding: 10px 16px; } .brand .badge { display: none; } }
+
+/* ---------- floor plan ---------- */
+.floorplan { display: grid; gap: 12px; margin-bottom: 16px; }
+.floorplan.collapsed { padding: 10px 16px; }
+.floorplan .plan-edit-btn { margin-left: auto; }
+.floorplan .plan-edit-btn + .collapse-btn { margin-left: 0; }
+.floorplan-body { display: grid; gap: 12px; min-width: 0; }
+.plan-stage { position: relative; height: clamp(320px, 62vw, 560px); border-radius: 12px; overflow: hidden; touch-action: none;
+  background: linear-gradient(180deg, #dfe7ee 0%, #c9d6c0 100%); }
+:root[data-theme="dark"] .plan-stage { background: linear-gradient(180deg, #1b2129 0%, #1d261b 100%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plan-stage { background: linear-gradient(180deg, #1b2129 0%, #1d261b 100%); } }
+.plan-stage.loading { display: grid; place-items: center; }
+.plan-stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.plan-stage canvas:active { cursor: grabbing; }
+.plan-overlay { position: absolute; inset: 0; pointer-events: none; }
+.plan-label { position: absolute; left: 0; top: 0; font-size: 10px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase;
+  color: rgba(40, 44, 50, .55); white-space: nowrap; user-select: none; }
+.plan-label.mapped { color: rgba(30, 34, 40, .8); }
+.plan-pin { position: absolute; left: 0; top: 0; pointer-events: auto; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border-radius: 50%; border: 2px solid rgba(255, 255, 255, .9); background: rgba(24, 27, 33, .86); color: #fff; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .35); touch-action: none; }
+.plan-pin.on { background: #ffc84a; color: #2a2110; box-shadow: 0 0 0 4px rgba(255, 200, 74, .35), 0 2px 6px rgba(0, 0, 0, .3); }
+.plan-pin.offline { opacity: .5; }
+.plan-pin.selected { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 6px rgba(0, 0, 0, .35); }
+.plan-pin:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.plan-pin-value { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 1px 5px; border-radius: 8px; background: #d9443a;
+  color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plan-stage.editing .plan-pin { cursor: move; }
+.plan-reset { position: absolute; right: 10px; bottom: 10px; min-height: 30px; padding: 0 10px; font-size: 13px; }
+.plan-edit { display: grid; gap: 10px; }
+.plan-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 8px; }
+.plan-room { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; min-width: 0; }
+.plan-room span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-room select { max-width: 60%; }
+.plan-pick { display: grid; gap: 6px; max-width: 420px; }
+.plan-hint { margin: 0; }

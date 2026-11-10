@@ -163,6 +163,8 @@ export interface HomeLayout {
   rooms: string[];
   order: Record<string, string[]>;
   widgets?: { weather?: WeatherLocation };
+  /** Floor plan: dashboard room → plan zone id ('' = not on the plan), and dragged pin positions [x, z] in metres. */
+  floorplan?: { zones?: Record<string, string>; pins?: Record<string, number[]> };
 }
 
 export interface WeatherLocation {
