@@ -8,6 +8,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DeviceCard, type Run } from './DeviceCard';
+import { Widgets } from './Widgets';
 import { Icon } from './Icon';
 import { PROVIDERS } from '../providers';
 import { displayName, roomOf, type Device, type DevicePrefs, type HomeLayout, type ProviderId } from '../types';
@@ -228,6 +229,7 @@ export function HomeView({ devices, run, pending, onPrefs, onConnect, layout, on
 
   return (
     <>
+      <Widgets layout={layout} onLayout={onLayout} />
       <Summary devices={devices} />
       <div className="chips filter">
         <button className={`chip ${filter === 'all' ? 'selected' : ''}`} onClick={() => setFilter('all')}>All</button>

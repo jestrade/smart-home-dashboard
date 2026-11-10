@@ -158,6 +158,13 @@ export type AccessStatus = 'member' | 'unclaimed' | 'denied';
 export interface HomeLayout {
   rooms: string[];
   order: Record<string, string[]>;
+  widgets?: { weather?: WeatherLocation };
+}
+
+export interface WeatherLocation {
+  name: string;
+  lat: number;
+  lon: number;
 }
 
 export const displayName = (d: Device) => d.prefs?.name || d.name;

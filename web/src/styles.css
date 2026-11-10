@@ -337,3 +337,41 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 .room-overlay { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.2); font-weight: 650; }
 .drag-hint { margin: 0 0 4px; }
 @media (hover: none) { .grip { opacity: .8; } }
+
+/* ---------- home widgets ---------- */
+.widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; align-items: start; }
+.widget { padding: 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.widget.weather { grid-column: 1 / -1; }
+.clock-time { display: flex; align-items: baseline; gap: 6px; font-size: 44px; font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.clock-seconds { font-size: 20px; color: var(--muted); font-weight: 500; }
+.date-day { font-size: 52px; font-weight: 700; line-height: 1; color: var(--accent); }
+.date-month { font-size: 17px; font-weight: 600; text-transform: capitalize; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; }
+.cal-title { border: 0; background: none; font-weight: 650; cursor: pointer; text-transform: capitalize; padding: 4px 6px; border-radius: 8px; }
+.cal-title:hover { background: var(--surface-2); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cal-dow { color: var(--muted); font-weight: 600; padding: 2px 0; text-transform: uppercase; }
+.cal-day { padding: 4px 0; border-radius: 6px; }
+.cal-day.today { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.weather-head { display: flex; justify-content: space-between; align-items: center; }
+.weather-now { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.weather-icon { color: var(--active); }
+.weather-temp { font-size: 44px; font-weight: 650; line-height: 1; }
+.weather-kv { margin-left: auto; font-size: 13px; }
+.hourly { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; scrollbar-width: thin; }
+.hour { flex: none; display: grid; justify-items: center; gap: 4px; min-width: 48px; padding: 6px 4px; border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+.hour svg { color: var(--muted); }
+.rain-chance { font-size: 11px; color: var(--info); font-variant-numeric: tabular-nums; }
+.daily { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.daily li { display: grid; grid-template-columns: 52px 22px 36px 32px 1fr 32px; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.daily li svg { color: var(--muted); }
+.day-name { font-weight: 600; text-transform: capitalize; }
+.t-lo { color: var(--muted); text-align: right; }
+.range { position: relative; height: 6px; border-radius: 999px; background: var(--surface-2); }
+.range span { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--chart); }
+.loc-picker { display: grid; gap: 8px; }
+.loc-picker input { height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.loc-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.loc-results button { width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.loc-results button:hover { background: var(--surface-2); }
+@media (max-width: 720px) { .widgets { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .widget.calendar { grid-column: 1 / -1; } .weather-kv { margin-left: 0; } .clock-time { font-size: 36px; } .date-day { font-size: 42px; } }

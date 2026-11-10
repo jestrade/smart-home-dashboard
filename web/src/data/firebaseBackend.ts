@@ -86,10 +86,10 @@ export function createFirebaseBackend(): Backend {
     subscribeLayout: (cb) =>
       onSnapshot(doc(db, 'layout', 'home'), (snap) => {
         const d = snap.data() as Partial<HomeLayout> | undefined;
-        cb({ rooms: d?.rooms ?? [], order: d?.order ?? {} });
+        cb({ rooms: d?.rooms ?? [], order: d?.order ?? {}, widgets: d?.widgets ?? {} });
       }),
     saveLayout: async (layout) => {
-      await setDoc(doc(db, 'layout', 'home'), { rooms: layout.rooms, order: layout.order, updatedAt: serverTimestamp() });
+      await setDoc(doc(db, 'layout', 'home'), { rooms: layout.rooms, order: layout.order, widgets: layout.widgets ?? {}, updatedAt: serverTimestamp() });
     },
     sync: async (provider) => (await call<{ results: SyncResult[] }>('syncDevices', { provider })).results,
 
