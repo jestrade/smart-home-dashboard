@@ -6,12 +6,12 @@ export type DeviceType =
 
 export type Capability =
   | 'onoff' | 'brightness' | 'thermostat' | 'mode' | 'lock' | 'cover' | 'climate' | 'honkFlash'
-  | 'charge' | 'chargeCurrent' | 'snapshot';
+  | 'snapshot';
 
 export type Action =
   | 'setOn' | 'setBrightness' | 'setTemperature' | 'setMode'
   | 'lock' | 'unlock' | 'cover' | 'climateStart' | 'climateStop' | 'honkFlash'
-  | 'pauseCharging' | 'resumeCharging' | 'setMaxCurrent' | 'snapshot';
+  | 'snapshot';
 
 export interface DeviceState {
   on?: boolean;

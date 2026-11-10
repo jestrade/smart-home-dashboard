@@ -152,7 +152,7 @@ export default function App() {
       <main className="content">
         {tab === 'home' && <HomeView devices={devices} run={run} pending={pending} onPrefs={onPrefs} onConnect={() => go('integrations')} />}
         {tab === 'vehicle' && <VehicleView vehicles={vehicles} onConnect={() => go('integrations')} />}
-        {tab === 'charger' && <ChargerView chargers={chargers} run={run} pending={pending} onConnect={() => go('integrations')} />}
+        {tab === 'charger' && <ChargerView chargers={chargers} onConnect={() => go('integrations')} />}
         {tab === 'solar' && <SolarView stations={stations} onConnect={() => go('integrations')} />}
         {tab === 'integrations' && <IntegrationsView backend={backend} status={status} notify={notify} />}
         {tab === 'activity' && <ActivityView events={events} />}

@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Icon } from './Icon';
-import type { Run } from './DeviceCard';
 import { displayName, type Device } from '../types';
+
+// Read-only view of Wallbox chargers: status, sessions, costs and configuration.
 
 const n = (v?: number, digits = 1) =>
   v == null ? '—' : v.toLocaleString(undefined, { maximumFractionDigits: digits });
@@ -24,9 +25,7 @@ const TONE: Record<string, string> = {
   charging: 'info', ready: 'ok', locked: 'muted', paused: 'warn', waiting: 'muted', error: 'warn', idle: 'muted',
 };
 
-export function ChargerView({ chargers, run, pending, onConnect }: {
-  chargers: Device[]; run: Run; pending: Set<string>; onConnect: () => void;
-}) {
+export function ChargerView({ chargers, onConnect }: { chargers: Device[]; onConnect: () => void }) {
   if (chargers.length === 0) {
     return (
       <div className="empty">
@@ -36,14 +35,14 @@ export function ChargerView({ chargers, run, pending, onConnect }: {
       </div>
     );
   }
-  return <div className="stack">{chargers.map((c) => <ChargerCard key={c.id} charger={c} run={run} pending={pending.has(c.id)} />)}</div>;
+  return <div className="stack">{chargers.map((c) => <ChargerCard key={c.id} charger={c} />)}</div>;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="v-section"><h3>{title}</h3>{children}</section>;
 }
 
-function ChargerCard({ charger, run, pending }: { charger: Device; run: Run; pending: boolean }) {
+function ChargerCard({ charger }: { charger: Device }) {
   const s = charger.state;
   // Live status reports cost 0 for finished sessions; the session list has the real cost.
   const latest = s.sessions?.[0];
@@ -54,16 +53,14 @@ function ChargerCard({ charger, run, pending }: { charger: Device; run: Run; pen
   const cur = s.currency;
   const group = s.statusGroup ?? 'idle';
   const charging = group === 'charging';
-  const max = s.maxAvailableCurrent ?? 32;
-  const [amps, setAmps] = useState(s.maxChargingCurrent ?? max);
-  useEffect(() => setAmps(s.maxChargingCurrent ?? max), [s.maxChargingCurrent, max]);
-  const commitAmps = () => amps !== s.maxChargingCurrent && run(charger, 'setMaxCurrent', amps);
-  const disabled = pending || !charger.online;
+  const max = s.maxAvailableCurrent;
+  const amps = s.maxChargingCurrent;
 
   return (
-    <article className={`card vehicle ${pending ? 'pending' : ''}`}>
+    <article className="card vehicle">
       <header className="vehicle-head">
         <div>
+          <p className="eyebrow">Wallbox</p>
           <h2>{displayName(charger)}</h2>
           <div className="device-sub">
             <span className={`badge ${TONE[group]}`}>{s.statusLabel ?? 'Unknown'}</span>
@@ -92,27 +89,6 @@ function ChargerCard({ charger, run, pending }: { charger: Device; run: Run; pen
       </div>
 
       {group === 'error' && <p className="warning">The charger reports an error. Check the myWallbox app.</p>}
-
-      <div className="btn-row">
-        {charging || group === 'waiting' ? (
-          <button className="btn" disabled={disabled} onClick={() => run(charger, 'pauseCharging')}>Pause charging</button>
-        ) : group === 'paused' ? (
-          <button className="btn primary" disabled={disabled} onClick={() => run(charger, 'resumeCharging')}>Resume charging</button>
-        ) : null}
-        {s.locked ? (
-          <button className="btn" disabled={disabled} onClick={() => window.confirm('Unlock the charger? Anyone could then start charging.') && run(charger, 'unlock')}>
-            <Icon name="unlock" size={18} /> Unlock
-          </button>
-        ) : (
-          <button className="btn" disabled={disabled} onClick={() => run(charger, 'lock')}><Icon name="lock" size={18} /> Lock</button>
-        )}
-      </div>
-
-      <label className="slider">
-        <span>Max charging current <b>{amps} A</b> <span className="fine">(≈ {n((amps * volts) / 1000)} kW at {volts} V)</span></span>
-        <input type="range" min={6} max={max} step={1} value={amps} disabled={disabled}
-          onChange={(e) => setAmps(Number(e.target.value))} onPointerUp={commitAmps} onKeyUp={commitAmps} />
-      </label>
 
       {s.session && (sess.greenEnergyKwh != null || sess.gridEnergyKwh != null) && (
         <Section title="Energy source (session)">
@@ -160,7 +136,7 @@ function ChargerCard({ charger, run, pending }: { charger: Device; run: Run; pen
           {s.ecoSmart && <><span>Eco-Smart</span><b>{s.ecoSmart.enabled ? `${s.ecoSmart.mode}${s.ecoSmart.percentage != null ? ` (${s.ecoSmart.percentage}%)` : ''}` : 'Off'}</b></>}
           {s.powerBoost != null && <><span>Power Boost</span><b>{s.powerBoost ? 'On' : 'Off'}</b></>}
           {s.autoLock != null && <><span>Auto-lock</span><b>{s.autoLock ? `After ${s.autoLockMinutes ?? '?'} min` : 'Off'}</b></>}
-          <span>Available current</span><b>{max} A</b>
+          {amps != null && <><span>Max charging current</span><b>{amps} A{max != null ? ` of ${max} A` : ''} <span className="fine">(≈ {n((amps * volts) / 1000)} kW at {volts} V)</span></b></>}
           {s.software && <><span>Firmware</span><b>{s.software.current}{s.software.updateAvailable ? ` → ${s.software.latest}` : ' (up to date)'}</b></>}
         </div>
       </Section>

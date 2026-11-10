@@ -179,7 +179,6 @@ export const sendCommand = onCall({ timeoutSeconds: 60 }, async (req) => {
     setTemperature: () => typeof value === 'number' && value >= 5 && value <= 35,
     setMode: () => typeof value === 'string' && value.length <= 32,
     cover: () => ['open', 'close', 'stop'].includes(value),
-    setMaxCurrent: () => Number.isInteger(value) && value >= 6 && value <= 80,
   };
   if (checks[action] && !checks[action]()) throw new HttpsError('invalid-argument', `Invalid value for ${action}.`);
 

@@ -319,3 +319,5 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 .chip.selected .count { color: inherit; }
 .chevron { flex: none; color: var(--muted); display: grid; transition: transform .15s; }
 .chevron.open { transform: rotate(180deg); }
+
+.eyebrow { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

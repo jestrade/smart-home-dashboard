@@ -42,7 +42,7 @@ function seed(): Device[] {
       days: Array.from({ length: 30 }, (_, i) => ({ day: new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10), kwh: Math.round((22 + 9 * Math.sin(i * 0.9) + (i % 5) * 1.3) * 10) / 10 })),
       inverters: [{ sn: '1031130229100151', model: 'S6-GR1P5K', state: 'Online', kw: 4.25, todayKwh: 18.6, totalKwh: 21300 }],
     } }),
-    d({ id: 'wallbox_1', provider: 'wallbox', providerId: '9988552', name: 'Pulsar Plus', type: 'charger', model: 'PLP1-M-2-4-9-002-F', suggestedRoom: 'Garage', capabilities: ['lock', 'charge', 'chargeCurrent'], state: {
+    d({ id: 'wallbox_1', provider: 'wallbox', providerId: '9988552', name: 'Pulsar Plus', type: 'charger', model: 'PLP1-M-2-4-9-002-F', suggestedRoom: 'Garage', capabilities: [], state: {
       statusCode: 194, statusLabel: 'Charging', statusGroup: 'charging', on: true, locked: false, chargingPowerKw: 7.2, chargingSpeed: 32,
       maxChargingCurrent: 32, maxAvailableCurrent: 32, currency: '€', energyPrice: 0.24,
       session: { energyKwh: 6.4, greenEnergyKwh: 1.1, gridEnergyKwh: 5.3, rangeKm: 40, durationS: 3200, cost: 1.54, finished: false },
@@ -126,9 +126,6 @@ export function createDemoBackend(): Backend {
       if (action === 'unlock') s.locked = false;
       if (action === 'climateStart') s.climatizing = true;
       if (action === 'climateStop') s.climatizing = false;
-      if (action === 'pauseCharging') Object.assign(s, { statusGroup: 'paused', statusLabel: 'Paused', on: false });
-      if (action === 'resumeCharging') Object.assign(s, { statusGroup: 'charging', statusLabel: 'Charging', on: true });
-      if (action === 'setMaxCurrent') s.maxChargingCurrent = value as number;
       if (action === 'snapshot') Object.assign(s, { snapshotUrl: '/car/front-three-quarter.webp', snapshotAt: new Date().toISOString() });
       if (action === 'cover') {
         if (value === 'open') { s.open = true; if (s.position != null) s.position = 100; }

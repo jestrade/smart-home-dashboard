@@ -168,7 +168,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'wallbox',
   name: 'Wallbox',
-  blurb: 'Wallbox chargers (Pulsar, Commander, Copper): live power, sessions, costs, lock and charging current.',
+  blurb: 'Wallbox chargers (Pulsar, Commander, Copper), read-only: live power, sessions, costs and configuration.',
   color: '#00b388',
   oauth: false,
   docsUrl: 'https://github.com/SKB-CGN/wallbox',

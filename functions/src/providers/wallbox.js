@@ -1,6 +1,6 @@
 // Wallbox (wallbox.com) chargers through the cloud API used by the myWallbox app.
 // Unofficial API, documented at https://github.com/SKB-CGN/wallbox
-// Works only with an email/password account (not Google/Apple sign-in).
+// Read-only. Works only with an email/password account (not Google/Apple sign-in).
 import { logger } from 'firebase-functions';
 import { fetchJson, ProviderError } from '../lib/http.js';
 
@@ -198,7 +198,7 @@ async function chargerState(cfg, id) {
     model: c.part_number ?? null,
     online: c.available !== 0 && s.status_id !== 0,
     state: clean(state),
-    capabilities: ['lock', 'charge', 'chargeCurrent'],
+    capabilities: [], // read-only
     meta: { chargerId: String(id) },
     suggestedRoom: 'Garage',
   };
@@ -215,30 +215,7 @@ export default {
     return Promise.all(ids.map((id) => chargerState(cfg, id)));
   },
 
-  async command(cfg, device, action, value) {
-    const id = device.meta?.chargerId ?? device.providerId;
-    const put = (body) => call(cfg, `/v2/charger/${id}`, { method: 'PUT', body });
-    switch (action) {
-      case 'lock':
-        await put({ locked: 1 });
-        return { locked: true };
-      case 'unlock':
-        await put({ locked: 0 });
-        return { locked: false };
-      case 'pauseCharging':
-        await call(cfg, `/v3/chargers/${id}/remote-action`, { method: 'POST', body: { action: 2 } });
-        return { statusGroup: 'paused', statusLabel: 'Paused', on: false };
-      case 'resumeCharging':
-        await call(cfg, `/v3/chargers/${id}/remote-action`, { method: 'POST', body: { action: 1 } });
-        return { statusLabel: 'Resuming…' };
-      case 'setMaxCurrent': {
-        const max = device.state?.maxAvailableCurrent ?? 32;
-        if (value < 6 || value > max) throw new ProviderError(`Current must be between 6 and ${max} A.`, 400);
-        await put({ maxChargingCurrent: value });
-        return { maxChargingCurrent: value };
-      }
-      default:
-        throw new ProviderError(`Wallbox does not support "${action}".`, 400);
-    }
+  async command() {
+    throw new ProviderError('The Wallbox integration is read-only.', 400);
   },
 };

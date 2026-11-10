@@ -12,9 +12,6 @@ const ACTION_TEXT: Record<string, (v: unknown) => string> = {
   climateStart: () => 'climate started',
   climateStop: () => 'climate stopped',
   honkFlash: () => 'honk & flash',
-  pauseCharging: () => 'charging paused',
-  resumeCharging: () => 'charging resumed',
-  setMaxCurrent: (v) => `max current → ${v} A`,
   snapshot: () => 'snapshot taken',
 };
 

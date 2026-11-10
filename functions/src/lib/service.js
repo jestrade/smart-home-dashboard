@@ -15,9 +15,6 @@ export const ACTION_CAPABILITY = {
   climateStart: 'climate',
   climateStop: 'climate',
   honkFlash: 'honkFlash',
-  pauseCharging: 'charge',
-  resumeCharging: 'charge',
-  setMaxCurrent: 'chargeCurrent',
   snapshot: 'snapshot',
 };
 
