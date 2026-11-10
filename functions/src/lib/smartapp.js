@@ -27,37 +27,55 @@ async function publicKey(keyId) {
 export async function verifySignature(req) {
   const auth = req.get('authorization') ?? '';
   const m = /^Signature (.+)$/.exec(auth);
-  if (!m) return false;
-  const params = Object.fromEntries([...m[1].matchAll(/(\w+)="([^"]*)"/g)].map((x) => [x[1], x[2]]));
+  const params = m ? Object.fromEntries([...m[1].matchAll(/(\w+)="([^"]*)"/g)].map((x) => [x[1], x[2]])) : {};
   const { keyId, signature } = params;
   const headers = (params.headers ?? 'date').split(' ');
-  if (!keyId || !signature) return false;
+  // Logs only non-secret metadata about why a request was rejected.
+  const fail = (reason, extra = {}) => {
+    logger.warn('smartapp signature check failed', {
+      reason,
+      authScheme: auth.split(' ')[0] || '(none)',
+      keyId: keyId ?? null,
+      signedHeaders: params.headers ?? null,
+      algorithm: params.algorithm ?? null,
+      url: req.url,
+      originalUrl: req.originalUrl,
+      date: req.get('date') ?? null,
+      hasDigest: Boolean(req.get('digest')),
+      ...extra,
+    });
+    return false;
+  };
+  if (!m) return fail('no Signature authorization header');
+  if (!keyId || !signature) return fail('keyId or signature missing');
 
   const date = req.get('date');
-  if (!date || Math.abs(Date.now() - Date.parse(date)) > MAX_CLOCK_SKEW_MS) return false;
+  if (!date || Math.abs(Date.now() - Date.parse(date)) > MAX_CLOCK_SKEW_MS) return fail('date missing or too far off');
 
-  const digest = req.get('digest');
   if (headers.includes('digest')) {
     const expected = 'SHA-256=' + crypto.createHash('sha256').update(req.rawBody ?? '').digest('base64');
-    if (digest !== expected) return false;
+    const digest = req.get('digest');
+    if (digest !== expected) {
+      return fail('digest mismatch', { digestPrefix: String(digest).slice(0, 8), rawBodyBytes: req.rawBody?.length ?? null });
+    }
   }
 
   let key;
   try {
     key = await publicKey(keyId);
   } catch (e) {
-    logger.warn(`smartapp key error: ${e.message}`);
-    return false;
+    return fail(`public key fetch failed: ${e.message}`);
   }
   // Firebase may strip the function name from req.url, so try the likely signed paths.
   const paths = [...new Set([WEBHOOK_PATH, req.originalUrl, req.url].filter(Boolean))];
   const sig = Buffer.from(signature, 'base64');
-  return paths.some((path) => {
+  const ok = paths.some((path) => {
     const signingString = headers
       .map((h) => (h === '(request-target)' ? `(request-target): ${req.method.toLowerCase()} ${path}` : `${h}: ${req.get(h) ?? ''}`))
       .join('\n');
     return crypto.verify('RSA-SHA256', Buffer.from(signingString), key, sig);
   });
+  return ok || fail('RSA signature did not verify', { pathsTried: paths, keyType: key.asymmetricKeyType });
 }
 
 /** Responses that need no storage: PING and CONFIGURATION. Returns null for other lifecycles. */

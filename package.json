@@ -4,9 +4,10 @@
   "scripts": {
     "setup": "npm --prefix web install && npm --prefix functions install",
     "demo": "npm --prefix web run demo",
-    "dev": "npm --prefix web run dev",
+    "local:functions": "firebase emulators:start --only functions",
+    "local:web": "npm --prefix web run dev:local",
     "emulators": "firebase emulators:start --only auth,firestore,functions",
     "build": "npm --prefix web run build",
-    "deploy": "firebase deploy"
+    "deploy": "firebase deploy --only functions,hosting,firestore"
   }
 }

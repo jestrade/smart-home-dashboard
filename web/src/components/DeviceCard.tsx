@@ -24,6 +24,7 @@ export function summary(d: Device): string {
   if (d.type === 'cover') parts.push(s.position != null ? `${s.position}% open` : s.open ? 'Open' : 'Closed');
   if (d.type === 'sensor' && s.open != null) parts.push(s.open ? 'Open' : 'Closed');
   if (s.motion) parts.push('Motion');
+  if (s.sleeping) parts.push('Asleep');
   if (s.powerW != null && s.on) parts.push(`${Math.round(s.powerW)} W`);
   if (s.battery != null) parts.push(`🔋${s.battery}%`);
   return parts.join(' · ') || (d.type === 'camera' ? 'Camera' : 'Online');
@@ -47,7 +48,7 @@ export function DeviceCard({ device, run, pending, onPrefs, rooms, handle }: {
 
   return (
     <article className={`card device ${isActive(device) ? 'active' : ''} ${device.online ? '' : 'offline'} ${pending ? 'pending' : ''}`}>
-      <div className="device-head" role="button" tabIndex={0} aria-expanded={open}
+      <div className="device-head" role="button" tabIndex={0} aria-expanded={open} aria-label={`${name}, ${summary(device)}`}
         onClick={() => setOpen(!open)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setOpen(!open))}>
         {handle && (
           <button className="grip" data-dnd-handle aria-label={`Move ${name}`} {...handle} onClick={(e) => e.stopPropagation()}>

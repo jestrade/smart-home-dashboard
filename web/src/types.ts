@@ -27,6 +27,7 @@ export interface DeviceState {
   position?: number;
   battery?: number;
   motion?: boolean;
+  sleeping?: boolean;
   powerW?: number;
   snapshotUrl?: string;
   snapshotAt?: string;

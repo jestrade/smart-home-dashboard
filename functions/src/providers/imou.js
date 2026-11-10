@@ -69,33 +69,48 @@ export default {
       details.push(...(d.deviceList ?? []));
     }
 
+    // Field names follow the real deviceBaseDetailList response:
+    // device { name, status, deviceModel, catalog, ability, version, channels: [{ channelId, channelName, status, picUrl, ability }] }
     const out = [];
     for (const dev of details) {
-      const channels = dev.channelList?.length ? dev.channelList : [{ channelId: '0', channelName: dev.deviceName }];
+      const model = dev.deviceModel ?? dev.catalog ?? null;
+      const devName = dev.name || dev.deviceName || dev.deviceId;
+      // IoT accessories (gateways, sensors, plugs) have ids like "<hub>_<sn>_<x>" or IOT_* models: not cameras.
+      const isCamera = !/^IOT/i.test(model ?? '') && !String(dev.deviceId).includes('_');
+      const channels = isCamera && dev.channels?.length ? dev.channels : [{ channelId: '0', channelName: devName }];
+      const multi = channels.length > 1;
+
       for (const ch of channels) {
-        const online = (ch.channelStatus ?? dev.deviceStatus) === 'online';
-        const privacySupported = has(dev.ability, 'CloseCamera') || has(ch.channelAbility, 'CloseCamera');
+        const status = ch.status ?? dev.status ?? dev.deviceStatus;
+        // Battery cameras report "sleep": reachable, but they wake on demand.
+        const online = status === 'online' || status === 'sleep';
         const state = {};
-        const capabilities = ['snapshot'];
-        if (privacySupported && online) {
-          try {
-            const st = await call(cfg, 'getDeviceCameraStatus', { deviceId: dev.deviceId, channelId: ch.channelId, enableType: 'closeCamera' });
-            state.on = st.status !== 'on'; // privacy mode on = camera off
-            capabilities.unshift('onoff');
-          } catch {
-            /* status not available for this model */
+        const capabilities = [];
+        if (status === 'sleep') state.sleeping = true;
+        if (isCamera) {
+          capabilities.push('snapshot');
+          const privacySupported = has(dev.ability, 'CloseCamera') || has(ch.ability, 'CloseCamera');
+          if (privacySupported && status === 'online') {
+            try {
+              const st = await call(cfg, 'getDeviceCameraStatus', { deviceId: dev.deviceId, channelId: ch.channelId, enableType: 'closeCamera' });
+              state.on = st.status !== 'on'; // privacy mode on = camera off
+              capabilities.unshift('onoff');
+            } catch {
+              /* not available for this model */
+            }
           }
+          if (ch.picUrl) state.imageUrl = ch.picUrl;
         }
-        if (ch.channelPicUrl) state.imageUrl = ch.channelPicUrl;
+        const chName = ch.channelName && ch.channelName !== devName ? ch.channelName : null;
         out.push({
-          providerId: channels.length > 1 ? `${dev.deviceId}_${ch.channelId}` : dev.deviceId,
-          name: (channels.length > 1 ? ch.channelName : dev.deviceName) || ch.channelName || dev.deviceId,
-          type: 'camera',
-          model: dev.deviceModel ?? null,
+          providerId: multi ? `${dev.deviceId}_${ch.channelId}` : dev.deviceId,
+          name: multi ? `${devName} · ${chName ?? `Lens ${Number(ch.channelId) + 1}`}` : devName,
+          type: isCamera ? 'camera' : 'other',
+          model,
           online,
           state,
           capabilities,
-          meta: { deviceId: dev.deviceId, channelId: String(ch.channelId), firmware: dev.deviceVersion ?? null },
+          meta: { deviceId: dev.deviceId, channelId: String(ch.channelId), firmware: dev.version ?? dev.deviceVersion ?? null },
           suggestedRoom: null,
         });
       }

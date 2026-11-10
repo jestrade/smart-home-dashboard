@@ -27,11 +27,13 @@ export function createFirebaseBackend(): Backend {
   const db = getFirestore(app);
   const fns = getFunctions(app, REGION);
   const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
+  // Local development: functions run on this machine, against the real Auth and Firestore.
+  const localFunctions = import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true';
   if (useEmulators) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
-    connectFunctionsEmulator(fns, '127.0.0.1', 5001);
   }
+  if (useEmulators || localFunctions) connectFunctionsEmulator(fns, '127.0.0.1', 5001);
   const call = <T,>(name: string, data?: unknown) =>
     httpsCallable<unknown, T>(fns, name)(data).then((r) => r.data);
 
