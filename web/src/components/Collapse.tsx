@@ -39,8 +39,10 @@ export function CollapseButton({ collapsed, onToggle, label, controls }: {
 }
 
 /** A titled section inside a Car / Charger / Solar card that can be collapsed. */
-export function Section({ title, id, scope, children }: { title: string; id?: string; scope: string; children: ReactNode }) {
-  const [collapsed, toggle] = useCollapsed(`${scope}:${id ?? title}`);
+export function Section({ title, id, scope, defaultCollapsed = false, children }: {
+  title: string; id?: string; scope: string; defaultCollapsed?: boolean; children: ReactNode;
+}) {
+  const [collapsed, toggle] = useCollapsed(`${scope}:${id ?? title}`, defaultCollapsed);
   const bodyId = useId();
   return (
     <section className={`v-section ${collapsed ? 'collapsed' : ''}`}>

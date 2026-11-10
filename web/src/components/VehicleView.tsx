@@ -59,7 +59,7 @@ export function VehicleView({ vehicles, onConnect }: { vehicles: Device[]; onCon
   return <div className="stack">{vehicles.map((v) => <VehicleCard key={v.id} car={v} />)}</div>;
 }
 
-const Section = (p: { title: string; id?: string; children: ReactNode }) => <CollapsibleSection scope="car" {...p} />;
+const Section = (p: { title: string; id?: string; defaultCollapsed?: boolean; children: ReactNode }) => <CollapsibleSection scope="car" {...p} />;
 
 function Stat({ label, value, unit, children }: { label: string; value: ReactNode; unit?: string; children?: ReactNode }) {
   return (
@@ -133,7 +133,6 @@ function VehicleCard({ car }: { car: Device }) {
 
   return (
     <article className="card vehicle">
-      {profile && !collapsed && <Gallery profile={profile} />}
       <header className="vehicle-head">
         <div>
           <h2>{name}</h2>
@@ -151,6 +150,12 @@ function VehicleCard({ car }: { car: Device }) {
         <CollapseButton collapsed={collapsed} onToggle={toggleCollapsed} label={name} />
       </header>
       {!collapsed && (<>
+
+      {profile && (
+        <Section title="Photos" defaultCollapsed>
+          <Gallery profile={profile} />
+        </Section>
+      )}
 
       <div className="stats">
         {s.batteryPercent != null && (
