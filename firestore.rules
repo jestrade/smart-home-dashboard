@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Access model: one household dashboard. The allowlist of emails lives in
+// config/access (created by the first person to sign in and "claim" it).
+// Provider credentials and OAuth tokens (integrations/*, oauthStates/*) are
+// never readable from the browser — only Cloud Functions touch them.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isMember() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/config/access)
+        && request.auth.token.email in get(/databases/$(database)/documents/config/access).data.emails;
+    }
+
+    match /config/access {
+      allow read: if isMember();
+    }
+
+    match /devices/{deviceId} {
+      allow read: if isMember();
+      // The browser may only change display preferences (room, name, favorite, hidden).
+      // Device state changes go through the sendCommand function.
+      allow update: if isMember()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prefs']);
+    }
+
+    match /integrationStatus/{provider} {
+      allow read: if isMember();
+    }
+
+    match /events/{eventId} {
+      allow read: if isMember();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
