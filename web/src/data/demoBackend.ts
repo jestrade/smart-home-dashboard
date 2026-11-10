@@ -34,7 +34,7 @@ function seed(): Device[] {
     d({ id: 'smartthings_ac', provider: 'smartthings', providerId: 'ac1', name: 'AC Samsung', type: 'thermostat', suggestedRoom: 'Bedroom', capabilities: ['onoff', 'mode', 'thermostat'], state: { on: true, temperature: 26.1, targetTemperature: 23.5, mode: 'cool', availableModes: ['cool', 'dry', 'wind', 'auto'] } }),
     d({ id: 'smartthings_tv_plug', provider: 'smartthings', providerId: 'plug1', name: 'TV plug', type: 'plug', suggestedRoom: 'Living room', capabilities: ['onoff'], state: { on: true, powerW: 86 } }),
     d({ id: 'imou_entrada', provider: 'imou', providerId: 'CAM1', name: 'Entrada', type: 'camera', model: 'IPC-A22EP', capabilities: ['onoff', 'snapshot'], prefs: { room: 'Entrance' }, state: { on: true, imageUrl: '/car/front.webp' } }),
-    d({ id: 'solis_1', provider: 'solis', providerId: '1000000000001', name: 'Demo Home', type: 'solar', model: '8.8 kWp', suggestedRoom: 'Roof', capabilities: [], state: {
+    d({ id: 'solis_1', provider: 'solis', providerId: '1000000000001', name: 'Demo Solar', type: 'solar', model: '8.8 kWp', suggestedRoom: 'Roof', capabilities: [], state: {
       statusLabel: 'Online', solarStatus: 'ok', powerKw: 4.25, capacityKwp: 8.8, todayKwh: 18.6, monthKwh: 212.4, yearKwh: 9800, totalKwh: 21300,
       income: { today: 13020, currency: 'COP' }, flow: { homeLoadKw: 1.2, gridKw: -3.05 }, todayGrid: { boughtKwh: 2.1, soldKwh: 9.4, homeKwh: 11.3 }, peakSunHours: 2.1,
       reportedAt: new Date(Date.now() - 5 * 60000).toISOString(),

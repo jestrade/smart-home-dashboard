@@ -1,7 +1,9 @@
-import type { Device } from './types';
+import type { Device, ProviderId } from './types';
 
 // Static details about your own cars that Volvo's API doesn't return for this app
-// (model, colour, photos, manual). Matched by the last 6 characters of the VIN.
+// (model, colour, photos, manual). A profile applies to every car from its provider;
+// with several cars, set `vinSuffix` to the last characters of a VIN to target one.
+// Keep VINs out of this file when you can: it ships in the public site bundle.
 
 export interface CarPhoto {
   src: string;
@@ -10,7 +12,8 @@ export interface CarPhoto {
 }
 
 export interface CarProfile {
-  vinSuffix: string;
+  provider: ProviderId;
+  vinSuffix?: string;
   name: string;
   model: string;
   year: number;
@@ -24,7 +27,7 @@ export interface CarProfile {
 
 export const CAR_PROFILES: CarProfile[] = [
   {
-    vinSuffix: '000001',
+    provider: 'volvo',
     name: 'XC40 Recharge',
     model: 'XC40 Recharge Pure Electric',
     year: 2024,
@@ -48,4 +51,6 @@ export const CAR_PROFILES: CarProfile[] = [
 ];
 
 export const profileFor = (car: Device) =>
-  car.provider === 'volvo' ? CAR_PROFILES.find((p) => car.providerId.toUpperCase().endsWith(p.vinSuffix)) : undefined;
+  CAR_PROFILES.find(
+    (p) => p.provider === car.provider && (!p.vinSuffix || car.providerId.toUpperCase().endsWith(p.vinSuffix.toUpperCase())),
+  );
