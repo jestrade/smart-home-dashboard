@@ -1,4 +1,4 @@
-import type { DeviceType } from '../types';
+import type { Device, DeviceType } from '../types';
 
 const PATHS: Record<string, string> = {
   light: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2V16h5v-.2c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3Z',
@@ -36,6 +36,13 @@ const PATHS: Record<string, string> = {
   edit: 'M4 20h4L19 9l-4-4L4 16v4Z',
   close: 'M6 6l12 12M18 6 6 18',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  solar: 'M4 5h16l2 12H2L4 5ZM12 5v12M3 11h18M12 17v3M8 20h8',
+  hub: 'M4 14h16v5H4zM8 16.5h.01M12 16.5h.01M12 14v-4M8.5 6.5a5 5 0 0 1 7 0M10.3 8.8a2.4 2.4 0 0 1 3.4 0',
+  remote: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM12 7.5h.01M10 12h.01M14 12h.01M10 15.5h.01M14 15.5h.01',
+  bell: 'M6 17v-6a6 6 0 0 1 12 0v6l1.5 2h-15L6 17ZM10 21.5h4M12 3v2',
+  ac: 'M3 6h18v8H3zM6 11h12M8 17v2M12 17v3M16 17v2',
+  air: 'M3 9h10a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 11.5h5',
+  water: 'M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z',
 };
 
 export function Icon({ name, size = 20 }: { name: keyof typeof PATHS | DeviceType; size?: number }) {
@@ -45,4 +52,24 @@ export function Icon({ name, size = 20 }: { name: keyof typeof PATHS | DeviceTyp
       <path d={PATHS[name] ?? PATHS.other} />
     </svg>
   );
+}
+
+// Generic device types ("other", plugs, switches) say little; the device's name usually says what it is.
+const BY_NAME: [RegExp, string][] = [
+  [/purificador|purifier/, 'air'],
+  [/\b(aire|ac|a\/c|clima|minisplit|air ?con\w*)\b/, 'ac'],
+  [/infrarrojo|infrared|\bir\b|remote|control remoto/, 'remote'],
+  [/gateway|\bhub\b|bridge|puente|\bgw\d*\b/, 'hub'],
+  [/alarm|sirena|siren/, 'bell'],
+  [/valvula|valve|riego|irrigat|sprinkler|\bagua\b|water/, 'water'],
+  [/\b(luz|luces|light|lights|lamp|lampara|led|foco|bombillo)\b/, 'light'],
+  [/ventilador|abanico|\bfan\b/, 'fan'],
+];
+
+/** The most specific icon for a device: by its type, or by its name when the type is generic. */
+export function deviceIcon(d: Device): string {
+  if (d.type === 'solar') return 'solar';
+  if (!['other', 'plug', 'switch'].includes(d.type)) return d.type;
+  const text = `${d.prefs?.name ?? ''} ${d.name} ${d.model ?? ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return BY_NAME.find(([re]) => re.test(text))?.[1] ?? d.type;
 }

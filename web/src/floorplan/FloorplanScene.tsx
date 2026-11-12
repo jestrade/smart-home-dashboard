@@ -1,6 +1,6 @@
 // The 3D house with one pin per device. Loaded lazily (three.js is large).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '../components/Icon';
+import { Icon, deviceIcon } from '../components/Icon';
 import { displayName, type Device } from '../types';
 import { FLOORS, toM, type Zone } from './plan';
 import { createHouse, type HouseScene } from './scene';
@@ -150,7 +150,7 @@ export default function FloorplanScene({ pins, labels, selected, editing, onSele
               onClick={() => !editing && onSelect(selected === d.id ? null : d.id)}
               onPointerDown={(e) => startDrag(e, p)} onPointerMove={(e) => moveDrag(e, p)}
               onPointerUp={endDrag} onPointerCancel={endDrag}>
-              <Icon name={d.type} size={16} />
+              <Icon name={deviceIcon(d)} size={16} />
               {value && <span className="plan-pin-value">{value}</span>}
             </button>
           );

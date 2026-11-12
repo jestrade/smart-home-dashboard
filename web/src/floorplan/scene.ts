@@ -1,8 +1,10 @@
 // Builds the 3D model of the house from plan.ts. No React here.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import {
-  CENTER, DOORS, DOOR_HEIGHT, EXTERIOR_WALLS, FLOORS, FURNITURE, GLASS, INTERIOR_WALLS, LOT, SIDEWALK, WALL_HEIGHT,
+  CENTER, DOORS, DOOR_HEIGHT, EXTERIOR_WALLS, EXTRA_FLOORS, FLOORS, FURNITURE, GLASS, INTERIOR_WALLS, WINDOWS, LOT, SIDEWALK, WALL_HEIGHT,
   toM, type Furniture, type Rect, type Seg, type Surface,
 } from './plan';
 
@@ -32,8 +34,9 @@ const M = {
   dark: mat(0x3d4045),
   plant: mat(0x3f6e37),
   pot: mat(0xb9a58d),
-  carBlue: mat(0x5a7690, { roughness: 0.4 }),
-  carGrey: mat(0xa3a6aa, { roughness: 0.4 }),
+  carBlue: mat(0x4f7391, { roughness: 0.35, metalness: 0.25 }), // Fjord Blue
+  tail: mat(0xb3261e),
+  rim: mat(0xb9bcc0, { roughness: 0.4, metalness: 0.5 }),
   carGlass: mat(0x39444f, { roughness: 0.2 }),
 };
 
@@ -61,31 +64,92 @@ function segBox(s: Seg, thickness: number, y0: number, y1: number, material: THR
 // BoxGeometry face order: +x, -x, +y (top), -y, +z, -z.
 const WALL_MATS = [M.wall, M.wall, M.cap, M.wall, M.wall, M.wall];
 
+/**
+ * A Volvo XC40 Recharge at real size (4.44 × 1.86 × 1.65 m), nose towards +z.
+ * The body and the glasshouse are side profiles extruded across the car's width.
+ */
+function xc40(L: number, W: number): THREE.Group {
+  const car = new THREE.Group();
+  car.name = 'Volvo XC40';
+  const k = L / 4.44; // profile points below are in metres for the real car
+  /** Extrudes a side profile [distance from centre towards the nose, height] across `width`. */
+  const profile = (pts: [number, number][], width: number, m: THREE.Material) => {
+    const shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x * k, y)));
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false });
+    geo.translate(0, 0, -width / 2);
+    geo.rotateY(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geo, m);
+    car.add(mesh);
+    return mesh;
+  };
+  const box = (bw: number, bh: number, bl: number, x: number, y: number, z: number, m: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bl * k), m);
+    mesh.position.set(x, y, z * k);
+    car.add(mesh);
+    return mesh;
+  };
+
+  // Black sill and bumper cladding, then the painted body with the rising belt line at the rear door.
+  profile([[-2.2, 0.22], [2.2, 0.22], [2.22, 0.5], [-2.22, 0.5]], W, M.dark);
+  profile([[-2.22, 0.42], [2.22, 0.42], [2.22, 0.8], [2.14, 0.97], [1.2, 1.07], [-0.95, 1.1], [-1.75, 1.24], [-2.18, 1.24], [-2.22, 0.9]], W * 0.995, M.carBlue);
+  // Glasshouse: raked windscreen, flat roof, upright tailgate glass.
+  profile([[1.2, 1.07], [0.42, 1.58], [-1.7, 1.58], [-2.12, 1.24], [-1.75, 1.24], [-0.95, 1.1]], W * 0.9, M.carGlass);
+  // Body-colour pillars: A-pillars at the windscreen and the thick, kicked-up C-pillar.
+  profile([[-1.3, 1.16], [-1.75, 1.24], [-2.12, 1.24], [-1.72, 1.58], [-1.5, 1.58]], W * 0.91, M.carBlue);
+  // Black roof with a small spoiler (the Recharge's two-tone look).
+  profile([[0.45, 1.58], [0.3, 1.64], [-1.6, 1.65], [-1.95, 1.6], [-1.7, 1.56]], W * 0.9, M.dark);
+
+  // Front: closed, body-colour panel instead of a grille; slim headlights; lower intake.
+  box(W * 0.5, 0.2, 0.03, 0, 0.78, 2.21, M.carBlue);
+  box(W * 0.6, 0.12, 0.04, 0, 0.5, 2.21, M.dark);
+  for (const sx of [-1, 1]) {
+    box(W * 0.2, 0.07, 0.06, sx * W * 0.36, 0.86, 2.18, M.pillow); // headlight
+    box(0.05, 0.42, 0.05, sx * W * 0.455, 1.2, -2.17, M.tail); // tall tail lamp up the pillar
+    box(W * 0.12, 0.08, 0.05, sx * W * 0.4, 1.02, -2.2, M.tail);
+    box(0.12, 0.08, 0.16, sx * (W / 2 + 0.05), 1.12, 0.95, M.dark); // mirror
+    for (const z of [1.35, -1.35]) { // 2.70 m wheelbase
+      const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.04, 28), M.dark);
+      const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.24, 28), M.dark);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.02, 20), M.rim);
+      arch.position.set(sx * (W / 2 - 0.015), 0.4, z * k);
+      tyre.position.set(sx * (W / 2 - 0.12), 0.36, z * k);
+      rim.position.set(sx * (W / 2 + 0.005), 0.36, z * k);
+      for (const c of [arch, tyre, rim]) { c.rotation.z = Math.PI / 2; car.add(c); }
+    }
+  }
+  return car;
+}
+
 function furniture(f: Furniture): THREE.Object3D {
   const g = new THREE.Group();
   const r = f.rect;
+  const a = toM(r[0], r[1]);
+  const b = toM(r[2], r[3]);
+  const cx = (a.x + b.x) / 2;
+  const cz = (a.z + b.z) / 2;
+  const w = b.x - a.x;
+  const d = b.z - a.z;
   switch (f.kind) {
     case 'bed': {
       g.add(rectBox(r, 0, 0.45, M.linen));
-      const a = toM(r[0], r[1]);
-      const b = toM(r[2], r[3]);
-      // Pillows along the side nearest a wall (the north side on this plan).
-      const pillow = new THREE.Mesh(new THREE.BoxGeometry((b.x - a.x) * 0.8, 0.12, 0.35), M.pillow);
-      pillow.position.set((a.x + b.x) / 2, 0.51, a.z + 0.3);
+      const along = f.head === 'e' || f.head === 'w'; // pillows run north–south
+      const pillow = new THREE.Mesh(new THREE.BoxGeometry(along ? 0.35 : w * 0.8, 0.12, along ? d * 0.8 : 0.35), M.pillow);
+      pillow.position.set(
+        f.head === 'e' ? b.x - 0.3 : f.head === 'w' ? a.x + 0.3 : cx, 0.51,
+        f.head === 's' ? b.z - 0.3 : f.head === 'n' || !f.head ? a.z + 0.3 : cz,
+      );
       g.add(pillow);
       break;
     }
     case 'sofa': g.add(rectBox(r, 0, 0.42, M.sofa)); break;
     case 'table': {
       g.add(rectBox(r, 0.72, 0.77, M.white));
-      g.add(rectBox(r, 0, 0.72, M.white, 0.55));
+      g.add(rectBox(r, 0, 0.72, M.white, 0.3));
       break;
     }
     case 'round': {
-      const a = toM(r[0], r[1]);
-      const b = toM(r[2], r[3]);
-      const c = new THREE.Mesh(new THREE.CylinderGeometry((b.x - a.x) / 2, (b.x - a.x) / 2, 0.38, 32), M.white);
-      c.position.set((a.x + b.x) / 2, 0.19, (a.z + b.z) / 2);
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, 0.38, 32), M.white);
+      c.position.set(cx, 0.19, cz);
       g.add(c);
       break;
     }
@@ -93,36 +157,128 @@ function furniture(f: Furniture): THREE.Object3D {
     case 'wardrobe': g.add(rectBox(r, 0, 2.1, M.wardrobe)); break;
     case 'toilet': g.add(rectBox(r, 0, 0.42, M.white)); break;
     case 'column': g.add(rectBox(r, 0, WALL_HEIGHT, M.dark)); break;
+    case 'planter': g.add(rectBox(r, 0, 0.3, M.pot)); break;
+    case 'stone': g.add(rectBox(r, 0.03, 0.06, M.counter)); break;
     case 'plant': {
-      const a = toM(r[0], r[1]);
-      const b = toM(r[2], r[3]);
-      const rad = (b.x - a.x) / 2;
+      const rad = w / 2;
       const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(rad, 1), M.plant);
-      bush.position.set(a.x + rad, rad * 0.9, a.z + rad);
-      bush.scale.y = 0.8;
+      bush.position.set(cx, rad * 0.9, cz);
+      bush.scale.y = 0.9;
       g.add(bush);
       break;
     }
     case 'car': {
-      const first = !FURNITURE.slice(0, FURNITURE.indexOf(f)).some((x) => x.kind === 'car');
-      const body = first ? M.carBlue : M.carGrey;
-      g.add(rectBox(r, 0.18, 0.85, body, 0.05));
-      const a = toM(r[0], r[1]);
-      const b = toM(r[2], r[3]);
-      const len = b.z - a.z;
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry((b.x - a.x) * 0.8, 0.55, len * 0.5), M.carGlass);
-      cabin.position.set((a.x + b.x) / 2, 1.12, a.z + len * 0.55);
-      g.add(cabin);
-      for (const [fx, fz] of [[0.1, 0.18], [0.9, 0.18], [0.1, 0.82], [0.9, 0.82]]) {
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.22, 20), M.dark);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(a.x + (b.x - a.x) * fx, 0.33, a.z + len * fz);
-        g.add(wheel);
-      }
+      g.add(xc40(Math.max(w, d), Math.min(w, d)));
+      g.children[0].position.set(cx, 0, cz);
+      g.children[0].rotation.y = { s: 0, e: Math.PI / 2, n: Math.PI, w: -Math.PI / 2 }[f.head ?? 's'];
       break;
     }
   }
   return g;
+}
+
+/** The house as a three.js group (metres, y up): walls, floors, furniture. Also used for the .glb export. */
+export function buildHouse(): THREE.Group {
+  const house = new THREE.Group();
+  house.name = 'House';
+
+  // Ground and sidewalk
+  const pad = 400;
+  const ground = rectBox([LOT[0] - pad, LOT[1] - pad, LOT[2] + pad, LOT[3] + pad], -0.06, -0.02, M.ground);
+  ground.name = 'Ground';
+  ground.receiveShadow = true;
+  house.add(ground);
+  const walk = rectBox(SIDEWALK, -0.02, 0.0, mat(SURFACE.paving));
+  walk.name = 'Sidewalk';
+  walk.receiveShadow = true;
+  house.add(walk);
+
+  for (const z of FLOORS) {
+    const floor = rectBox(z.rect, 0, 0.03, mat(SURFACE[z.surface]));
+    floor.name = `Floor ${z.label}`;
+    floor.receiveShadow = true;
+    house.add(floor);
+  }
+
+  for (const e of EXTRA_FLOORS) {
+    const floor = rectBox(e.rect, 0, 0.03, mat(SURFACE[e.surface]));
+    floor.name = 'Floor';
+    floor.receiveShadow = true;
+    house.add(floor);
+  }
+
+  for (const [list, t] of [[EXTERIOR_WALLS, 0.15], [INTERIOR_WALLS, 0.1]] as const) {
+    for (const s of list) {
+      const w = segBox(s, t, 0, WALL_HEIGHT, WALL_MATS);
+      w.name = t > 0.12 ? 'Exterior wall' : 'Interior wall';
+      w.castShadow = true;
+      w.receiveShadow = true;
+      house.add(w);
+    }
+  }
+  for (const d of DOORS) {
+    const l = segBox(d, 0.1, DOOR_HEIGHT, WALL_HEIGHT, WALL_MATS);
+    l.name = 'Door lintel';
+    l.castShadow = true;
+    house.add(l);
+  }
+  for (const g of GLASS) {
+    const glass = segBox(g, 0.04, 0, DOOR_HEIGHT + 0.2, M.glass);
+    glass.name = 'Glass door';
+    house.add(glass);
+  }
+  for (const w of WINDOWS) {
+    const sill = segBox(w, 0.15, 0, WALL_HEIGHT / 2, WALL_MATS);
+    sill.name = 'Window wall';
+    sill.castShadow = true;
+    sill.receiveShadow = true;
+    const pane = segBox(w, 0.04, WALL_HEIGHT / 2, WALL_HEIGHT, M.glass);
+    pane.name = 'Window';
+    house.add(sill, pane);
+  }
+
+  for (const f of FURNITURE) {
+    const o = furniture(f);
+    o.name = f.kind[0].toUpperCase() + f.kind.slice(1);
+    o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; } });
+    house.add(o);
+  }
+  return house;
+}
+
+
+// ---------- detailed car model ----------
+
+/** Places a loaded car model on its parking rectangle, at the rectangle's real length. */
+export function fitCar(model: THREE.Object3D, f: Furniture): THREE.Group {
+  // The file carries its own paint (set per part when the model was prepared).
+  model.traverse((o) => { if (o instanceof THREE.Mesh) { o.castShadow = true; o.receiveShadow = true; } });
+  const a = toM(f.rect[0], f.rect[1]);
+  const b = toM(f.rect[2], f.rect[3]);
+  const length = Math.max(b.x - a.x, b.z - a.z);
+  const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+  model.scale.multiplyScalar(length / Math.max(size.x, size.z)); // the model's nose points to +z
+  const box = new THREE.Box3().setFromObject(model);
+  const c = box.getCenter(new THREE.Vector3());
+  model.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
+  const car = new THREE.Group();
+  car.name = 'Volvo XC40 Recharge';
+  car.add(model);
+  car.position.set((a.x + b.x) / 2, 0.03, (a.z + b.z) / 2);
+  car.rotation.y = { s: 0, e: Math.PI / 2, n: Math.PI, w: -Math.PI / 2 }[f.head ?? 's'];
+  return car;
+}
+
+/** Swaps the block cars in a house for the detailed model (parsed from the .glb's bytes). */
+export async function upgradeCars(house: THREE.Group, glb: ArrayBuffer) {
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  const gltf = await loader.parseAsync(glb, '');
+  const cars = FURNITURE.filter((f) => f.kind === 'car');
+  cars.forEach((f, i) => {
+    const old = house.children.filter((o) => o.name === 'Car')[0];
+    if (old) house.remove(old);
+    house.add(fitCar(i === cars.length - 1 ? gltf.scene : gltf.scene.clone(true), f));
+  });
 }
 
 export interface HouseScene {
@@ -161,44 +317,15 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
   sun.shadow.bias = -0.0005;
   scene.add(sun, sun.target);
 
-  const house = new THREE.Group();
+  const house = buildHouse();
   scene.add(house);
-
-  // Ground and sidewalk
-  const pad = 40;
-  const ground = rectBox([LOT[0] - pad, LOT[1] - pad, LOT[2] + pad, LOT[3] + pad], -0.06, -0.02, M.ground);
-  ground.receiveShadow = true;
-  house.add(ground);
-  const walk = rectBox(SIDEWALK, -0.02, 0.0, mat(SURFACE.paving));
-  walk.receiveShadow = true;
-  house.add(walk);
-
-  for (const z of FLOORS) {
-    const floor = rectBox(z.rect, 0, 0.03, mat(SURFACE[z.surface]));
-    floor.receiveShadow = true;
-    house.add(floor);
-  }
-
-  for (const [list, t] of [[EXTERIOR_WALLS, 0.2], [INTERIOR_WALLS, 0.12]] as const) {
-    for (const s of list) {
-      const w = segBox(s, t, 0, WALL_HEIGHT, WALL_MATS);
-      w.castShadow = true;
-      w.receiveShadow = true;
-      house.add(w);
-    }
-  }
-  for (const d of DOORS) {
-    const l = segBox(d, 0.12, DOOR_HEIGHT, WALL_HEIGHT, WALL_MATS);
-    l.castShadow = true;
-    house.add(l);
-  }
-  for (const g of GLASS) house.add(segBox(g, 0.04, 0, DOOR_HEIGHT + 0.2, M.glass));
-
-  for (const f of FURNITURE) {
-    const o = furniture(f);
-    o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; } });
-    house.add(o);
-  }
+  // The simple car shows at once; the detailed one replaces it when its file arrives.
+  let disposed = false;
+  fetch('/models/xc40.glb')
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((glb) => upgradeCars(house, glb))
+    .then(() => { if (!disposed) controls.dispatchEvent({ type: 'change' }); })
+    .catch(() => { /* keep the simple car */ });
 
   const glows: THREE.PointLight[] = [];
   const glowGroup = new THREE.Group();
@@ -206,12 +333,12 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
 
   const controls = new OrbitControls(camera, canvas);
   controls.maxPolarAngle = 1.25;
-  controls.minDistance = 7;
+  controls.minDistance = 5;
   controls.maxDistance = 50;
   controls.screenSpacePanning = false;
 
   const resetView = () => {
-    camera.position.set(CENTER.x, 21, CENTER.z + 19);
+    camera.position.set(CENTER.x, 19, CENTER.z + 17);
     controls.target.set(CENTER.x, 0, CENTER.z);
     controls.update();
   };
@@ -258,6 +385,7 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
     },
     resetView,
     dispose() {
+      disposed = true;
       controls.dispose();
       scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
       Object.values(M).forEach((m) => m.dispose());

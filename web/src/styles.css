@@ -309,6 +309,9 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 /* ---------- camera snapshot ---------- */
 .snapshot { display: grid; gap: 8px; }
 .snapshot img, .snapshot-empty { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; background: var(--surface-2); display: block; }
+.live-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #000; display: block; }
+.snapshot-actions { display: flex; gap: 6px; }
+.live-error { gap: 8px; align-content: center; text-align: center; padding: 8px; }
 .snapshot-empty { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
 
 /* ---------- solar charts ---------- */
@@ -485,7 +488,7 @@ body::after {
 @media (min-width: 721px) and (max-width: 900px) { .topbar { padding: 10px 16px; } .brand .badge { display: none; } }
 
 /* ---------- floor plan ---------- */
-.floorplan { display: grid; gap: 12px; margin-bottom: 16px; }
+.floorplan { display: grid; gap: 12px; margin-bottom: 16px; padding: 16px; }
 .floorplan.collapsed { padding: 10px 16px; }
 .floorplan .plan-edit-btn { margin-left: auto; }
 .floorplan .plan-edit-btn + .collapse-btn { margin-left: 0; }
@@ -519,3 +522,13 @@ body::after {
 .plan-room select { max-width: 60%; }
 .plan-pick { display: grid; gap: 6px; max-width: 420px; }
 .plan-hint { margin: 0; }
+
+/* ---------- reorderable Home sections ---------- */
+.home-section { position: relative; min-width: 0; }
+.home-section.dragging { z-index: 5; opacity: .85; }
+.section-grip { display: grid; place-items: center; width: 56px; height: 20px; margin: 0 auto 2px; padding: 0; border: 0; border-radius: 10px;
+  background: none; color: var(--muted); opacity: .45; cursor: grab; touch-action: none; }
+.section-grip svg { transform: rotate(90deg); }
+.section-grip:hover, .section-grip:focus-visible { opacity: 1; background: var(--surface-2); }
+.section-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.section-grip:active { cursor: grabbing; }

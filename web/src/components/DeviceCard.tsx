@@ -1,5 +1,5 @@
-import { useEffect, useState, type HTMLAttributes } from 'react';
-import { Icon } from './Icon';
+import { useEffect, useRef, useState, type HTMLAttributes } from 'react';
+import { Icon, deviceIcon } from './Icon';
 import { Toggle } from './Toggle';
 import { providerMeta } from '../providers';
 import { displayName, roomOf, type Action, type Device, type DevicePrefs } from '../types';
@@ -56,7 +56,7 @@ export function DeviceCard({ device, run, pending, onPrefs, rooms, handle }: {
             <Icon name="grip" size={16} />
           </button>
         )}
-        <span className="device-icon"><Icon name={device.type} /></span>
+        <span className="device-icon"><Icon name={deviceIcon(device)} /></span>
         <div className="device-text">
           <div className="device-name">{name}{device.prefs?.favorite && <span className="fav" aria-label="Favorite">★</span>}</div>
           <div className="device-sub">
@@ -115,24 +115,97 @@ export function DeviceCard({ device, run, pending, onPrefs, rooms, handle }: {
 function CameraSnapshot({ device, run, disabled }: { device: Device; run: Run; disabled: boolean }) {
   const src = device.state.snapshotUrl ?? device.state.imageUrl;
   const [attempt, setAttempt] = useState(0);
+  const [live, setLive] = useState<'off' | 'starting' | 'on'>('off');
   useEffect(() => setAttempt(0), [src]);
   // A new snapshot takes a few seconds to upload; retry the image a few times.
   const retry = () => attempt < 5 && setTimeout(() => setAttempt((a) => a + 1), 2000);
+  const canLive = device.capabilities.includes('live');
+
+  // The address must come from this request: an old one may have expired.
+  const [since, setSince] = useState(0);
+  const liveAt = device.state.liveAt ? Date.parse(device.state.liveAt) : 0;
+  const fresh = Boolean(device.state.liveUrl) && liveAt >= since - 60_000;
+  const startLive = async () => {
+    setSince(Date.now());
+    setLive('starting');
+    await run(device, 'live'); // asks the camera for a live address; errors are shown as a toast
+    setLive('on');
+  };
+  // If the request failed, no fresh address arrives: go back to the snapshot.
+  useEffect(() => {
+    if (live !== 'on' || fresh) return;
+    const t = setTimeout(() => setLive('off'), 4000);
+    return () => clearTimeout(t);
+  }, [live, fresh]);
+  const playing = live === 'on' && fresh;
+
   return (
     <div className="snapshot">
-      {src ? (
+      {playing ? (
+        <LiveVideo url={device.state.liveUrl!} label={`${displayName(device)} live video`} onFail={() => setLive('off')} />
+      ) : src ? (
         <img key={`${src}#${attempt}`} src={attempt ? `${src}${src.includes('?') ? '&' : '?'}r=${attempt}` : src} alt={`${displayName(device)} snapshot`} onError={retry} />
       ) : (
         <div className="snapshot-empty">No snapshot yet</div>
       )}
       <div className="device-meta">
-        <span>{device.state.snapshotAt ? `Snapshot ${new Date(device.state.snapshotAt).toLocaleTimeString()}` : 'Last thumbnail'}</span>
-        {device.capabilities.includes('snapshot') && (
-          <button className="btn small" disabled={disabled} onClick={() => run(device, 'snapshot')}>Take snapshot</button>
-        )}
+        <span>{playing ? 'Live' : live !== 'off' ? 'Starting video…' : device.state.snapshotAt ? `Snapshot ${new Date(device.state.snapshotAt).toLocaleTimeString()}` : 'Last thumbnail'}</span>
+        <span className="snapshot-actions">
+          {canLive && (playing
+            ? <button className="btn small" onClick={() => setLive('off')}>Stop</button>
+            : <button className="btn small" disabled={disabled || live !== 'off'} onClick={startLive}>Live</button>)}
+          {device.capabilities.includes('snapshot') && !playing && (
+            <button className="btn small" disabled={disabled} onClick={() => run(device, 'snapshot')}>Take snapshot</button>
+          )}
+        </span>
       </div>
     </div>
   );
+}
+
+/** Plays an HLS stream: natively on Safari/iOS, through hls.js (loaded on demand) elsewhere. */
+function LiveVideo({ url, label, onFail }: { url: string; label: string; onFail: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const video = ref.current!;
+    let destroy = () => {};
+    let cancelled = false;
+    setError(null);
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+      const onError = () => setError('The camera did not send video.');
+      video.addEventListener('error', onError);
+      destroy = () => { video.removeEventListener('error', onError); video.removeAttribute('src'); video.load(); };
+    } else {
+      import('hls.js').then(({ default: Hls }) => {
+        if (cancelled) return;
+        if (!Hls.isSupported()) { setError('This browser cannot play live video.'); return; }
+        const hls = new Hls({ liveSyncDurationCount: 2 });
+        let retries = 0;
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (!data.fatal) return;
+          // Cameras take a few seconds to start sending; try again a few times.
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR && retries++ < 5) setTimeout(() => hls.loadSource(url), 2000);
+          else setError('The camera did not send video.');
+        });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        destroy = () => hls.destroy();
+      }).catch(() => setError('Could not load the video player.'));
+    }
+    return () => { cancelled = true; destroy(); };
+  }, [url]);
+
+  if (error) {
+    return (
+      <div className="snapshot-empty live-error">
+        <span>{error}</span>
+        <button className="btn small" onClick={onFail}>Back to snapshot</button>
+      </div>
+    );
+  }
+  return <video ref={ref} className="live-video" aria-label={label} autoPlay muted playsInline controls />;
 }
 
 function PositionSlider({ device, run, disabled }: { device: Device; run: Run; disabled: boolean }) {

@@ -29,11 +29,12 @@ service cloud.firestore {
     match /layout/home {
       allow read: if isMember();
       allow write: if isMember()
-        && request.resource.data.keys().hasOnly(['rooms', 'order', 'widgets', 'floorplan', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['rooms', 'order', 'widgets', 'floorplan', 'sections', 'updatedAt'])
         && request.resource.data.rooms is list && request.resource.data.rooms.size() <= 100
         && request.resource.data.order is map && request.resource.data.order.size() <= 101
         && (!('widgets' in request.resource.data) || (request.resource.data.widgets is map && request.resource.data.widgets.size() <= 10))
-        && (!('floorplan' in request.resource.data) || (request.resource.data.floorplan is map && request.resource.data.floorplan.keys().hasOnly(['zones', 'pins'])));
+        && (!('floorplan' in request.resource.data) || (request.resource.data.floorplan is map && request.resource.data.floorplan.keys().hasOnly(['zones', 'pins'])))
+        && (!('sections' in request.resource.data) || (request.resource.data.sections is list && request.resource.data.sections.size() <= 10));
     }
 
     match /integrationStatus/{provider} {

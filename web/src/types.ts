@@ -6,12 +6,12 @@ export type DeviceType =
 
 export type Capability =
   | 'onoff' | 'brightness' | 'thermostat' | 'mode' | 'lock' | 'cover' | 'climate' | 'honkFlash'
-  | 'snapshot' | 'position';
+  | 'snapshot' | 'position' | 'live';
 
 export type Action =
   | 'setOn' | 'setBrightness' | 'setTemperature' | 'setMode'
   | 'lock' | 'unlock' | 'cover' | 'climateStart' | 'climateStop' | 'honkFlash'
-  | 'snapshot' | 'setPosition';
+  | 'snapshot' | 'setPosition' | 'live';
 
 export interface DeviceState {
   on?: boolean;
@@ -33,6 +33,9 @@ export interface DeviceState {
   powerW?: number;
   snapshotUrl?: string;
   snapshotAt?: string;
+  /** HLS address of the camera's live video, set by the "live" action. */
+  liveUrl?: string;
+  liveAt?: string;
   // vehicle
   doorsOpen?: string[];
   odometerKm?: number;
@@ -163,6 +166,8 @@ export interface HomeLayout {
   rooms: string[];
   order: Record<string, string[]>;
   widgets?: { weather?: WeatherLocation };
+  /** Order of the Home page's sections (ids: today, plan, summary, devices). */
+  sections?: string[];
   /** Floor plan: dashboard room → plan zone id ('' = not on the plan), and dragged pin positions [x, z] in metres. */
   floorplan?: { zones?: Record<string, string>; pins?: Record<string, number[]> };
 }

@@ -22,7 +22,7 @@ async function rpc(cfg, method, params = {}) {
   if (res?.code !== '0') {
     const code = res?.code ?? '?';
     const authError = ['OP1008', 'OP1009', 'SN1001', 'SN1002', 'TK1002', 'TK1003'].includes(code);
-    throw new ProviderError(`Imou ${method}: ${res?.msg ?? 'unknown error'} (${code})`, authError ? 401 : 400);
+    throw Object.assign(new ProviderError(`Imou ${method}: ${res?.msg ?? 'unknown error'} (${code})`, authError ? 401 : 400), { code });
   }
   return res.data ?? {};
 }
@@ -88,7 +88,7 @@ export default {
         const capabilities = [];
         if (status === 'sleep') state.sleeping = true;
         if (isCamera) {
-          capabilities.push('snapshot');
+          capabilities.push('snapshot', 'live');
           const privacySupported = has(dev.ability, 'CloseCamera') || has(ch.ability, 'CloseCamera');
           if (privacySupported && status === 'online') {
             try {
@@ -129,6 +129,20 @@ export default {
       const d = await call(cfg, 'setDeviceSnapEnhanced', { deviceId, channelId });
       if (!d.url) throw new ProviderError('Imou returned no snapshot.', 502);
       return { snapshotUrl: d.url, snapshotAt: new Date().toISOString() };
+    }
+    if (action === 'live') {
+      // A live address (HLS) for the browser. Imou keeps one per camera, so reuse it when it exists.
+      let d;
+      try {
+        d = await call(cfg, 'bindDeviceLive', { deviceId, channelId, streamId: 1 });
+      } catch (e) {
+        if (e.code !== 'LV1001') throw e; // LV1001: a live address already exists
+        d = await call(cfg, 'getLiveStreamInfo', { deviceId, channelId });
+      }
+      const streams = (d.streams ?? []).filter((x) => /^https:/.test(x.hls ?? ''));
+      const stream = streams.find((x) => Number(x.streamId) === 1) ?? streams[0];
+      if (!stream) throw new ProviderError('Imou returned no live video address for this camera.', 502);
+      return { liveUrl: stream.hls, liveAt: new Date().toISOString() };
     }
     throw new ProviderError(`Imou: "${action}" is not supported.`, 400);
   },

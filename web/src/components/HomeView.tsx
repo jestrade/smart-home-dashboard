@@ -1,6 +1,6 @@
 import { useMemo, useState, type HTMLAttributes, type ReactNode } from 'react';
 import {
-  DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDroppable, useSensor, useSensors,
+  DndContext, DragOverlay, KeyboardSensor, MouseSensor, PointerSensor, TouchSensor, closestCenter, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent,
 } from '@dnd-kit/core';
 import {
@@ -10,7 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { DeviceCard, type Run } from './DeviceCard';
 import { Widgets } from './Widgets';
 import { Floorplan } from '../floorplan/Floorplan';
-import { Icon } from './Icon';
+import { Icon, deviceIcon } from './Icon';
 import { PROVIDERS } from '../providers';
 import { displayName, roomOf, type Device, type DevicePrefs, type HomeLayout, type ProviderId } from '../types';
 
@@ -74,6 +74,22 @@ function SortableRoom({ room, disabled, count, children }: { room: string; disab
   );
 }
 
+/** A top-level block of the Home page; dragged by the grip bar above it. */
+function SortableSection({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  const { setNodeRef, setActivatorNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div ref={setNodeRef} className={`home-section ${isDragging ? 'dragging' : ''}`}
+      style={{ transform: CSS.Translate.toString(transform), transition }}>
+      <button ref={setActivatorNodeRef} type="button" className="section-grip" aria-label={`Move section ${label}`} title="Drag to reorder" {...attributes} {...listeners}>
+        <Icon name="grip" size={16} />
+      </button>
+      {children}
+    </div>
+  );
+}
+
+const SECTIONS: Record<string, string> = { today: 'Today', plan: 'Floor plan', summary: 'Summary', devices: 'Devices' };
+
 function DropGrid({ room, children }: { room: string; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId(room) });
   return <div ref={setNodeRef} className={`grid ${isOver ? 'drop-over' : ''}`}>{children}</div>;
@@ -128,6 +144,11 @@ export function HomeView({ devices, run, pending, onPrefs, onConnect, layout, on
     useSensor(CardMouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(CardTouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(HandleKeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   // Rooms only collide with rooms; favorites only with favorites; room cards with room cards and room drop zones.
@@ -228,11 +249,12 @@ export function HomeView({ devices, run, pending, onPrefs, onConnect, layout, on
 
   const activeDevice = drag?.type === 'card' ? byId.get(unFav(drag.id)) : undefined;
 
-  return (
+  const blocks: Record<string, ReactNode> = {
+    today: <Widgets layout={layout} onLayout={onLayout} />,
+    plan: <Floorplan devices={devices} layout={layout} onLayout={onLayout} run={run} pending={pending} onPrefs={onPrefs} />,
+    summary: <Summary devices={devices} />,
+    devices: (
     <>
-      <Widgets layout={layout} onLayout={onLayout} />
-      <Floorplan devices={devices} layout={layout} onLayout={onLayout} run={run} pending={pending} onPrefs={onPrefs} />
-      <Summary devices={devices} />
       <div className="chips filter">
         <button className={`chip ${filter === 'all' ? 'selected' : ''}`} onClick={() => setFilter('all')}>All</button>
         {providersPresent.map((p) => (
@@ -273,7 +295,7 @@ export function HomeView({ devices, run, pending, onPrefs, onConnect, layout, on
           {activeDevice ? (
             <div className="card device drag-overlay">
               <div className="device-head">
-                <span className="device-icon"><Icon name={activeDevice.type} /></span>
+                <span className="device-icon"><Icon name={deviceIcon(activeDevice)} /></span>
                 <div className="device-text"><div className="device-name">{displayName(activeDevice)}</div></div>
               </div>
             </div>
@@ -283,8 +305,26 @@ export function HomeView({ devices, run, pending, onPrefs, onConnect, layout, on
         </DragOverlay>
       </DndContext>
     </>
+    ),
+  };
+  const known = Object.keys(SECTIONS);
+  const sectionOrder = [...(layout.sections ?? []).filter((id) => known.includes(id)), ...known.filter((id) => !(layout.sections ?? []).includes(id))];
+  const onSectionDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = sectionOrder.indexOf(String(active.id));
+    const to = sectionOrder.indexOf(String(over.id));
+    if (from >= 0 && to >= 0) onLayout({ ...layout, sections: arrayMove(sectionOrder, from, to) });
+  };
+
+  return (
+    <DndContext sensors={sectionSensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
+      <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+        {sectionOrder.map((id) => <SortableSection key={id} id={id} label={SECTIONS[id]}>{blocks[id]}</SortableSection>)}
+      </SortableContext>
+    </DndContext>
   );
 }
+
 
 function Summary({ devices }: { devices: Device[] }) {
   const live = devices.filter((d) => d.online && !d.stale);

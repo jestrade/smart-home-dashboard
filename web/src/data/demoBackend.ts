@@ -13,6 +13,12 @@ function seed(): Device[] {
     d({ id: 'tuya_plug', provider: 'tuya', providerId: 'plug', name: 'Coffee machine', type: 'plug', state: { on: false }, capabilities: ['onoff'], prefs: { room: 'Kitchen', favorite: true } }),
     d({ id: 'tuya_curtain', provider: 'tuya', providerId: 'curtain', name: 'Curtains', type: 'cover', state: { position: 100 }, capabilities: ['cover'], prefs: { room: 'Bedroom' } }),
     d({ id: 'tuya_th', provider: 'tuya', providerId: 'th', name: 'Climate sensor', type: 'sensor', state: { temperature: 21.4, humidity: 48, battery: 82 }, capabilities: [], prefs: { room: 'Bedroom' } }),
+    d({ id: 'tuya_ir', provider: 'tuya', providerId: 'ir', name: 'Infrarrojo', type: 'other', state: {}, capabilities: [], prefs: { room: 'Living room' } }),
+    d({ id: 'tuya_ac', provider: 'tuya', providerId: 'ac', name: 'Aire sala', type: 'other', state: {}, capabilities: [], prefs: { room: 'Living room' } }),
+    d({ id: 'tuya_gw', provider: 'tuya', providerId: 'gw', name: 'GW06', type: 'other', state: {}, capabilities: [], prefs: { room: 'Hallway' } }),
+    d({ id: 'tuya_valve', provider: 'tuya', providerId: 'valve', name: 'Válvula jardín', type: 'switch', state: { on: false }, capabilities: ['onoff'], prefs: { room: 'Jardín' } }),
+    d({ id: 'tuya_purifier', provider: 'tuya', providerId: 'purifier', name: 'Purificador aire', type: 'plug', state: { on: true }, capabilities: ['onoff'], prefs: { room: 'Bedroom' } }),
+    d({ id: 'imou_alarm', provider: 'imou', providerId: 'alarm', name: 'Alarma1', type: 'other', state: {}, capabilities: [], prefs: { room: 'Entrance' } }),
     d({ id: 'tuya_fan', provider: 'tuya', providerId: 'fan', name: 'Ceiling fan', type: 'fan', state: { on: false }, capabilities: ['onoff'], prefs: { room: 'Bedroom' }, online: false }),
     d({ id: 'google_thermo', provider: 'google', providerId: 'thermo', name: 'Hallway thermostat', type: 'thermostat', suggestedRoom: 'Hallway', state: { temperature: 20.5, humidity: 45, mode: 'HEAT', availableModes: ['HEAT', 'COOL', 'HEATCOOL', 'OFF'], targetTemperature: 21, hvac: 'HEATING' }, capabilities: ['thermostat', 'mode'], prefs: { favorite: true } }),
     d({ id: 'google_door', provider: 'google', providerId: 'door', name: 'Front door', type: 'camera', suggestedRoom: 'Entrance', state: {}, capabilities: [] }),
@@ -34,7 +40,7 @@ function seed(): Device[] {
     } }),
     d({ id: 'smartthings_ac', provider: 'smartthings', providerId: 'ac1', name: 'AC Samsung', type: 'thermostat', suggestedRoom: 'Bedroom', capabilities: ['onoff', 'mode', 'thermostat'], state: { on: true, temperature: 26.1, targetTemperature: 23.5, mode: 'cool', availableModes: ['cool', 'dry', 'wind', 'auto'] } }),
     d({ id: 'smartthings_tv_plug', provider: 'smartthings', providerId: 'plug1', name: 'TV plug', type: 'plug', suggestedRoom: 'Living room', capabilities: ['onoff'], state: { on: true, powerW: 86 } }),
-    d({ id: 'imou_entrada', provider: 'imou', providerId: 'CAM1', name: 'Entrada', type: 'camera', model: 'IPC-A22EP', capabilities: ['onoff', 'snapshot'], prefs: { room: 'Entrance' }, state: { on: true, imageUrl: '/car/front.webp' } }),
+    d({ id: 'imou_entrada', provider: 'imou', providerId: 'CAM1', name: 'Entrada', type: 'camera', model: 'IPC-A22EP', capabilities: ['onoff', 'snapshot', 'live'], prefs: { room: 'Entrance' }, state: { on: true, imageUrl: '/car/front.webp' } }),
     d({ id: 'solis_1', provider: 'solis', providerId: '1000000000001', name: 'Demo Solar', type: 'solar', model: '8.8 kWp', suggestedRoom: 'Roof', capabilities: [], state: {
       statusLabel: 'Online', solarStatus: 'ok', powerKw: 4.25, capacityKwp: 8.8, todayKwh: 18.6, monthKwh: 212.4, yearKwh: 9800, totalKwh: 21300,
       income: { today: 13020, currency: 'COP' }, flow: { homeLoadKw: 1.2, gridKw: -3.05 }, todayGrid: { boughtKwh: 2.1, soldKwh: 9.4, homeKwh: 11.3 }, peakSunHours: 2.1,
@@ -132,6 +138,7 @@ export function createDemoBackend(): Backend {
       if (action === 'climateStart') s.climatizing = true;
       if (action === 'climateStop') s.climatizing = false;
       if (action === 'snapshot') Object.assign(s, { snapshotUrl: '/car/front-three-quarter.webp', snapshotAt: new Date().toISOString() });
+      if (action === 'live') Object.assign(s, { liveUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', liveAt: new Date().toISOString() });
       if (action === 'setPosition') { s.position = value as number; s.open = (value as number) > 0; }
       if (action === 'cover') {
         if (value === 'open') { s.open = true; if (s.position != null) s.position = 100; }
