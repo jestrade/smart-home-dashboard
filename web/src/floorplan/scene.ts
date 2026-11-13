@@ -3,32 +3,59 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import {
-  CENTER, DOORS, DOOR_HEIGHT, EXTERIOR_WALLS, EXTRA_FLOORS, FLOORS, FURNITURE, GLASS, INTERIOR_WALLS, WINDOWS, LOT, SIDEWALK, WALL_HEIGHT,
-  toM, type Furniture, type Rect, type Seg, type Surface,
+  CANOPY, CENTER, CLADDING, DOORS, DOOR_HEIGHT, EXTERIOR_WALLS, EXTRA_FLOORS, FLOORS, FURNITURE, GLASS, INTERIOR_WALLS, WINDOWS, LOT, SIDEWALK, WALL_HEIGHT,
+  toM, type Furniture, type Rect, type Seg,
 } from './plan';
-
-const SURFACE: Record<Surface, number> = {
-  tile: 0xc3c4c1, // the light grey porcelain floor
-  wood: 0x9b7653,
-  concrete: 0x9d9e9b,
-  grass: 0x6d9a4c,
-  paving: 0xdcd9d2,
-  gravel: 0xb6b0a5,
-};
+import { panelMaterial, rng, surfaceMaterial, type Ground } from './textures';
 
 const mat = (color: number, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0, ...extra });
 
 const M = {
-  wall: mat(0xf3f2ee),
-  cap: mat(0x4a4d52),
-  glass: new THREE.MeshStandardMaterial({ color: 0x9fc4dc, transparent: true, opacity: 0.28, roughness: 0.1 }),
-  ground: mat(0x5f8a43),
+  wall: mat(0xf6f5f1, { roughness: 0.95 }),
+  cap: mat(0x3b3d41, { roughness: 0.8 }),
+  glass: new THREE.MeshStandardMaterial({ color: 0xa9c6d6, transparent: true, opacity: 0.3, roughness: 0.05, envMapIntensity: 1.6 }),
+  frame: mat(0x26282b, { roughness: 0.45, metalness: 0.5 }), // black aluminium
+  ledge: mat(0xd8d5ce, { roughness: 0.6 }),
+  soil: mat(0x6b5a48, { roughness: 1 }),
+  plant2: mat(0x5a8a45),
+  lime: mat(0x9dbb3c),
+  lime2: mat(0xb9cf4a),
+  yellow: mat(0xd8c63a),
+  deep: mat(0x2f6a34),
+  orange: mat(0xe2622b, { roughness: 0.6 }),
+  red: mat(0xc8324a, { roughness: 0.6 }),
+  burgundy: mat(0x7a2438),
+  olive: mat(0x6f9a2e),
+  olive2: mat(0x8fb53a),
+  trunk: mat(0xb39a76),
+  plaster: mat(0x8c8e92, { roughness: 0.9 }),
+  doorWood: mat(0xcbc4b6, { roughness: 0.6 }),
+  lamp: new THREE.MeshStandardMaterial({ color: 0xf4f1e6, emissive: 0xfff0c8, emissiveIntensity: 0.6, transparent: true, opacity: 0.85, roughness: 0.1 }),
+  soffit: new THREE.MeshStandardMaterial({ color: 0xb98a5a, transparent: true, opacity: 0.2, roughness: 0.6, depthWrite: false }),
   white: mat(0xf1efea),
   linen: mat(0xe7e2d8),
   pillow: mat(0xfafafa),
-  sofa: mat(0x6b625b),
+  sofa: mat(0xd6ccbb, { roughness: 1 }), // beige fabric
+  cushion: mat(0xe0d8ca, { roughness: 1 }),
+  grey: mat(0x6f6a68, { roughness: 1 }),
+  greyCushion: mat(0x7b7674, { roughness: 1 }),
+  gold: mat(0xc9a961, { roughness: 0.35, metalness: 0.8 }),
+  sage: mat(0xa9bfa6, { roughness: 1 }),
+  wine: mat(0x5a1f2e, { roughness: 0.5 }),
+  chair: mat(0xd9d3c8, { roughness: 1 }),
+  chairIn: mat(0xd9d3c8, { roughness: 1, side: THREE.BackSide }),
+  leg: mat(0xbfb39d, { roughness: 0.6 }),
+  screen: mat(0x0b0c0e, { roughness: 0.12, metalness: 0.4 }),
+  mirror: mat(0xe6ebee, { roughness: 0.03, metalness: 1 }),
   counter: mat(0xd9d6cf),
   wardrobe: mat(0xcbbfae),
   dark: mat(0x3d4045),
@@ -120,6 +147,65 @@ function xc40(L: number, W: number): THREE.Group {
   return car;
 }
 
+function rbox(w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material, r = 0.04) {
+  const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2.01, h / 2.01, d / 2.01)), m);
+  mesh.position.set(x, y, z);
+  return mesh;
+}
+
+/** The canvas of the living room painting: white flowers and gold streaks on grey. */
+function paintingMaterial() {
+  if (typeof document === 'undefined') return mat(0xcfcbc6);
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 224;
+  const x = c.getContext('2d')!;
+  const rand = rng(77);
+  x.fillStyle = '#c9c6c2';
+  x.fillRect(0, 0, 512, 224);
+  for (let i = 0; i < 60; i++) {
+    x.fillStyle = rand() > 0.6 ? '#c8a85a' : rand() > 0.5 ? '#aeaaa6' : '#dedbd7';
+    x.globalAlpha = 0.5;
+    x.fillRect(rand() * 512, rand() * 224, 3 + rand() * 6, 20 + rand() * 70);
+  }
+  x.globalAlpha = 1;
+  for (const [fx, fy] of [[110, 130], [190, 80], [270, 150], [340, 70], [420, 120]]) {
+    x.fillStyle = '#f6f4f0';
+    for (let p = 0; p < 5; p++) {
+      const t = (p / 5) * Math.PI * 2 + fx;
+      x.beginPath();
+      x.ellipse(fx + Math.cos(t) * 22, fy + Math.sin(t) * 22, 22, 14, t, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.fillStyle = '#8a7a4a';
+    x.beginPath();
+    x.arc(fx, fy, 8, 0, Math.PI * 2);
+    x.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
+}
+
+/** A tub dining chair at the origin, facing +z. */
+function chair(): THREE.Group {
+  const g = new THREE.Group();
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.23, 0.12, 24), M.chair);
+  seat.position.y = 0.45;
+  const shell = new THREE.CylinderGeometry(0.26, 0.25, 0.42, 24, 1, true, Math.PI / 2, Math.PI);
+  const back = new THREE.Mesh(shell, M.chair);
+  back.position.y = 0.66;
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.21, 0.42, 24, 1, true, Math.PI / 2, Math.PI), M.chairIn);
+  inner.position.y = 0.66;
+  g.add(seat, back, inner);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.012, 0.4, 8), M.leg);
+    leg.position.set(sx * 0.17, 0.2, sz * 0.17);
+    g.add(leg);
+  }
+  return g;
+}
+
 function furniture(f: Furniture): THREE.Object3D {
   const g = new THREE.Group();
   const r = f.rect;
@@ -129,6 +215,38 @@ function furniture(f: Furniture): THREE.Object3D {
   const cz = (a.z + b.z) / 2;
   const w = b.x - a.x;
   const d = b.z - a.z;
+  // Pieces placed from their "head" side: u metres across, v metres out from the head.
+  const head = f.head ?? 'n';
+  const ns = head === 'n' || head === 's';
+  const W = ns ? w : d;
+  const L = ns ? d : w;
+  const part = (across: number, h: number, along: number, u: number, y: number, v: number, m: THREE.Material, rad?: number) => {
+    const x = head === 'n' ? cx + u : head === 's' ? cx - u : head === 'e' ? b.x - v : a.x + v;
+    const z = head === 'n' ? a.z + v : head === 's' ? b.z - v : head === 'e' ? cz + u : cz - u;
+    const mesh = rbox(ns ? across : along, h, ns ? along : across, x, y, z, m, rad);
+    g.add(mesh);
+    return mesh;
+  };
+  /** A group standing on the head-side wall, looking into the room (its +z). */
+  const onWall = (out: number) => {
+    const o = new THREE.Group();
+    o.position.set(head === 'w' ? a.x + out : head === 'e' ? b.x - out : cx, 0, head === 'n' ? a.z + out : head === 's' ? b.z - out : cz);
+    o.rotation.y = { n: 0, s: Math.PI, w: Math.PI / 2, e: -Math.PI / 2 }[head];
+    g.add(o);
+    return o;
+  };
+  /** A shrub: a few leafy clumps of different sizes and colours. */
+  const bush = (height: number, mats: THREE.Material[]) => {
+    const rad = w / 2;
+    const rand = rng(r[0] * 31 + r[1]);
+    for (let i = 0; i < 6; i++) {
+      const size = rad * (i ? 0.45 + rand() * 0.3 : 0.8);
+      const clump = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 2), mats[i % mats.length]);
+      clump.position.set(cx + (i ? (rand() - 0.5) * rad * 1.3 : 0), (size * 0.75 + (i ? rand() * rad * 0.7 : 0)) * height, cz + (i ? (rand() - 0.5) * rad * 1.3 : 0));
+      clump.scale.y = 0.85 * height;
+      g.add(clump);
+    }
+  };
   switch (f.kind) {
     case 'bed': {
       g.add(rectBox(r, 0, 0.45, M.linen));
@@ -141,10 +259,99 @@ function furniture(f: Furniture): THREE.Object3D {
       g.add(pillow);
       break;
     }
-    case 'sofa': g.add(rectBox(r, 0, 0.42, M.sofa)); break;
+    case 'sofa': case 'recliner': {
+      const grey = f.kind === 'recliner';
+      const body = grey ? M.grey : M.sofa;
+      const soft = grey ? M.greyCushion : M.cushion;
+      part(W, 0.3, L, 0, 0.15, L / 2, body, 0.05);
+      part(W, 0.5, 0.22, 0, 0.52, 0.11, body, 0.09); // backrest
+      const arm = 0.16;
+      for (const sx of [-1, 1]) part(arm, 0.34, L, sx * (W / 2 - arm / 2), 0.44, L / 2, body, 0.07);
+      const inner = W - arm * 2;
+      const n = Math.max(1, Math.round(inner / 0.95));
+      for (let i = 0; i < n; i++) {
+        const u = (i - (n - 1) / 2) * (inner / n);
+        part(inner / n - 0.02, 0.15, L - 0.24, u, 0.37, 0.22 + (L - 0.22) / 2, soft, 0.06);
+        part(inner / n - 0.12, 0.34, 0.14, u, 0.6, 0.29, soft, 0.07).rotation[ns ? 'x' : 'z'] = (head === 'n' || head === 'e' ? -1 : 1) * 0.18 * (ns ? 1 : -1);
+      }
+      if (!grey) {
+        part(0.42, 0.3, 0.12, -inner / 2 + 0.3, 0.6, 0.42, M.sage, 0.06);
+        part(0.36, 0.3, 0.12, inner / 2 - 0.9, 0.6, 0.42, M.wine, 0.06);
+      }
+      break;
+    }
+    case 'sidetable': {
+      g.add(rbox(w, 0.04, d, cx, 0.55, cz, M.dark, 0.01));
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(rbox(0.04, 0.53, 0.04, cx + sx * (w / 2 - 0.03), 0.265, cz + sz * (d / 2 - 0.03), M.dark, 0.005));
+      break;
+    }
+    case 'painting': {
+      // Gold frame around a pale canvas with white flowers.
+      const o = onWall(0.09);
+      o.add(rbox(W, 0.72, 0.03, 0, 1.75, 0, M.gold, 0.005));
+      const art = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.05, 0.67), paintingMaterial());
+      art.position.set(0, 1.75, 0.017);
+      o.add(art);
+      break;
+    }
+    case 'chaise': {
+      g.add(rbox(w, 0.3, d, cx, 0.15, cz, M.sofa, 0.05));
+      g.add(rbox(w - 0.04, 0.15, d - 0.04, cx, 0.37, cz, M.cushion, 0.06));
+      break;
+    }
     case 'table': {
-      g.add(rectBox(r, 0.72, 0.77, M.white));
-      g.add(rectBox(r, 0, 0.72, M.white, 0.3));
+      // White top on a wide pedestal, two chairs on each long side and one at each end.
+      g.add(rbox(w, 0.05, d, cx, 0.75, cz, M.white, 0.02));
+      const wide = w >= d;
+      g.add(rbox(wide ? w * 0.45 : w * 0.5, 0.72, wide ? d * 0.5 : d * 0.45, cx, 0.36, cz, M.white, 0.06));
+      const long = Math.max(w, d);
+      const short = Math.min(w, d);
+      const seats: [number, number, number][] = []; // along, across, turn
+      for (const t of [-0.25, 0.25]) for (const side of [-1, 1]) seats.push([t * long, side * (short / 2 + 0.12), side > 0 ? Math.PI : 0]);
+      for (const end of [-1, 1]) seats.push([end * (long / 2 + 0.12), 0, end > 0 ? -Math.PI / 2 : Math.PI / 2]);
+      for (const [al, ac, turn] of seats) {
+        const c = chair();
+        c.position.set(cx + (wide ? al : ac), 0, cz + (wide ? ac : al));
+        c.rotation.y = wide ? turn : turn + Math.PI / 2;
+        g.add(c);
+      }
+      break;
+    }
+    case 'tv': {
+      const o = onWall(0.1);
+      const tv = rbox(W, W * 0.565, 0.04, 0, 1.4, 0, M.screen, 0.01);
+      o.add(tv);
+      break;
+    }
+    case 'console': {
+      part(W, 0.5, L, 0, 0.25, L / 2, M.white, 0.02);
+      part(W - 0.14, 0.32, L, 0, 0.27, L / 2 + 0.012, M.wine, 0.01);
+      break;
+    }
+    case 'mirror': {
+      // An organic, pebble-shaped mirror.
+      const pts: THREE.Vector2[] = [];
+      for (let i = 0; i < 14; i++) {
+        const t = (i / 14) * Math.PI * 2;
+        pts.push(new THREE.Vector2(Math.cos(t) * (W / 2) * (1 + 0.1 * Math.sin(3 * t + 1)), Math.sin(t) * 0.38 * (1 + 0.2 * Math.cos(2 * t + 0.6))));
+      }
+      const o = onWall(0.06);
+      const glass = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(new THREE.SplineCurve([...pts, pts[0]]).getPoints(80)), { depth: 0.02, bevelEnabled: false }), M.mirror);
+      glass.position.y = 1.65;
+      o.add(glass);
+      break;
+    }
+    case 'ac': {
+      // Round ceiling cassette: white body, dark air slot, white centre.
+      const y = WALL_HEIGHT - 0.05;
+      const rad = w / 2;
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, 0.1, 48), M.white);
+      body.position.set(cx, y, cz);
+      const slot = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.82, rad * 0.82, 0.02, 48), M.dark);
+      slot.position.set(cx, y - 0.055, cz);
+      const centre = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.7, rad * 0.7, 0.03, 48), M.white);
+      centre.position.set(cx, y - 0.065, cz);
+      g.add(body, slot, centre);
       break;
     }
     case 'round': {
@@ -159,12 +366,86 @@ function furniture(f: Furniture): THREE.Object3D {
     case 'column': g.add(rectBox(r, 0, WALL_HEIGHT, M.dark)); break;
     case 'planter': g.add(rectBox(r, 0, 0.3, M.pot)); break;
     case 'stone': g.add(rectBox(r, 0.03, 0.06, M.counter)); break;
-    case 'plant': {
+    case 'plant': bush(0.85, [M.plant, M.plant2]); break;
+    case 'croton': bush(0.8, [M.yellow, M.deep, M.lime, M.yellow, M.orange]); break;
+    case 'shrub': bush(0.6, [M.lime, M.lime2]); break;
+    case 'flower': {
+      bush(1, [M.deep, M.plant2, M.plant]);
+      const rand = rng(r[0] * 17 + r[1]);
+      for (let i = 0; i < 6; i++) {
+        const bloom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.045, 1), i % 2 ? M.orange : M.red);
+        bloom.position.set(cx + (rand() - 0.5) * w * 0.8, w * 0.75 + rand() * w * 0.5, cz + (rand() - 0.5) * w * 0.8);
+        g.add(bloom);
+      }
+      break;
+    }
+    case 'conifer': {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(w / 2, 0.95, 14), M.lime);
+      cone.position.set(cx, 0.5, cz);
+      g.add(cone);
+      break;
+    }
+    case 'cordyline': {
+      // Long red leaves fanning out from the stem.
+      const rand = rng(r[0] + r[1]);
+      for (let i = 0; i < 14; i++) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.75, 5), i % 3 ? M.burgundy : M.red);
+        const turn = (i / 14) * Math.PI * 2;
+        const lean = 0.25 + rand() * 0.55;
+        leaf.geometry.translate(0, 0.375, 0);
+        leaf.position.set(cx, 0.35 + rand() * 0.5, cz);
+        leaf.rotation.set(Math.cos(turn) * lean, 0, Math.sin(turn) * lean);
+        g.add(leaf);
+      }
+      break;
+    }
+    case 'tree': {
+      // Black olive (Bucida): slim pale trunk, foliage in wide flat tiers, 2.5 m tall.
+      const H = 2.5;
       const rad = w / 2;
-      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(rad, 1), M.plant);
-      bush.position.set(cx, rad * 0.9, cz);
-      bush.scale.y = 0.9;
-      g.add(bush);
+      const rand = rng(r[0] * 13 + r[1]);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.055, H * 0.9, 8), M.trunk);
+      trunk.position.set(cx, H * 0.45, cz);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.04, 28), surfaceMaterial('pebble', { x: 0, z: 0 }, { x: 0.9, z: 0.9 }));
+      ring.position.set(cx, 0.05, cz);
+      const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 20), M.soil);
+      soil.position.set(cx, 0.055, cz);
+      g.add(trunk, ring, soil);
+      for (let tier = 0; tier < 5; tier++) {
+        const y = 0.95 + tier * 0.33;
+        const reach = rad * (1 - tier * 0.16);
+        const n = 9 - tier;
+        for (let i = 0; i < n; i++) {
+          const turn = (i / n) * Math.PI * 2 + tier;
+          const out = i === 0 ? 0 : reach * (0.35 + rand() * 0.4);
+          const size = reach * (0.3 + rand() * 0.16);
+          const clump = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 2), (i + tier) % 3 ? M.olive : M.olive2);
+          clump.position.set(cx + Math.cos(turn) * out, Math.min(y + (rand() - 0.5) * 0.12, H - size * 0.5), cz + Math.sin(turn) * out);
+          clump.scale.y = 0.5;
+          g.add(clump);
+        }
+      }
+      break;
+    }
+    case 'bollard': {
+      g.add(rbox(0.12, 0.55, 0.12, cx, 0.3, cz, M.frame, 0.01));
+      g.add(rbox(0.1, 0.13, 0.1, cx, 0.64, cz, M.lamp, 0.01));
+      g.add(rbox(0.13, 0.03, 0.13, cx, 0.72, cz, M.frame, 0.005));
+      break;
+    }
+    case 'pebbles': g.add(rectBox(r, 0.03, 0.07, surfaceMaterial('pebble', a, b))); break;
+    case 'door': {
+      // Pale wood-grain door with a long black pull handle.
+      const o = onWall(0);
+      o.add(rbox(W - 0.04, DOOR_HEIGHT - 0.04, 0.05, 0, DOOR_HEIGHT / 2 + 0.02, 0, M.doorWood, 0.005));
+      o.add(rbox(0.025, 1.4, 0.03, -W / 2 + 0.2, 1.15, 0.05, M.frame, 0.01));
+      break;
+    }
+    case 'gate': {
+      // Black louvred gate.
+      const o = onWall(0);
+      o.add(rbox(W - 0.04, DOOR_HEIGHT - 0.04, 0.04, 0, DOOR_HEIGHT / 2 + 0.02, 0, M.frame, 0.005));
+      for (let i = 0; i < 16; i++) o.add(rbox(W - 0.14, 0.03, 0.06, 0, 0.2 + i * 0.115, 0, M.dark, 0.005));
       break;
     }
     case 'car': {
@@ -182,30 +463,27 @@ export function buildHouse(): THREE.Group {
   const house = new THREE.Group();
   house.name = 'House';
 
-  // Ground and sidewalk
+  const floor = (rect: Rect, kind: Ground, y0: number, y1: number, name: string) => {
+    const m = rectBox(rect, y0, y1, surfaceMaterial(kind, toM(rect[0], rect[1]), toM(rect[2], rect[3])));
+    m.name = name;
+    m.receiveShadow = true;
+    house.add(m);
+    return m;
+  };
+
+  // The lot as a thick slab, like the base of a scale model; street and sidewalk at the front.
   const pad = 400;
-  const ground = rectBox([LOT[0] - pad, LOT[1] - pad, LOT[2] + pad, LOT[3] + pad], -0.06, -0.02, M.ground);
+  const lot: Rect = [LOT[0] - pad, LOT[1] - pad, LOT[2] + pad, LOT[3] + pad];
+  const grass = surfaceMaterial('grass', toM(lot[0], lot[1]), toM(lot[2], lot[3]));
+  const ground = rectBox(lot, -0.5, -0.02, [M.soil, M.soil, grass, M.soil, M.soil, M.soil]);
   ground.name = 'Ground';
   ground.receiveShadow = true;
   house.add(ground);
-  const walk = rectBox(SIDEWALK, -0.02, 0.0, mat(SURFACE.paving));
-  walk.name = 'Sidewalk';
-  walk.receiveShadow = true;
-  house.add(walk);
+  floor([lot[0], SIDEWALK[3], lot[2], lot[3]], 'concrete', -0.02, -0.01, 'Street');
+  floor(SIDEWALK, 'paving', -0.02, 0.0, 'Sidewalk');
 
-  for (const z of FLOORS) {
-    const floor = rectBox(z.rect, 0, 0.03, mat(SURFACE[z.surface]));
-    floor.name = `Floor ${z.label}`;
-    floor.receiveShadow = true;
-    house.add(floor);
-  }
-
-  for (const e of EXTRA_FLOORS) {
-    const floor = rectBox(e.rect, 0, 0.03, mat(SURFACE[e.surface]));
-    floor.name = 'Floor';
-    floor.receiveShadow = true;
-    house.add(floor);
-  }
+  for (const z of FLOORS) floor(z.rect, z.surface, 0, 0.03, `Floor ${z.label}`);
+  for (const e of EXTRA_FLOORS) floor(e.rect, e.surface, 0, 0.03, 'Floor');
 
   for (const [list, t] of [[EXTERIOR_WALLS, 0.15], [INTERIOR_WALLS, 0.1]] as const) {
     for (const s of list) {
@@ -220,27 +498,88 @@ export function buildHouse(): THREE.Group {
     const l = segBox(d, 0.1, DOOR_HEIGHT, WALL_HEIGHT, WALL_MATS);
     l.name = 'Door lintel';
     l.castShadow = true;
+    l.receiveShadow = true;
     house.add(l);
   }
+
+  /** Black frame around a glazed opening: rails top and bottom, a post about every metre. */
+  const frame = (s: Seg, y0: number, y1: number, name: string) => {
+    const a = toM(s[0], s[1]);
+    const b = toM(s[2], s[3]);
+    const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.z - a.z) / 1.1));
+    const parts: THREE.Mesh[] = [segBox(s, 0.07, y0, y0 + 0.06, M.frame), segBox(s, 0.07, y1 - 0.06, y1, M.frame)];
+    for (let i = 0; i <= n; i++) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, y1 - y0, 0.07), M.frame);
+      post.position.set(a.x + ((b.x - a.x) * i) / n, (y0 + y1) / 2, a.z + ((b.z - a.z) * i) / n);
+      post.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
+      parts.push(post);
+    }
+    for (const p of parts) { p.name = name; p.castShadow = true; house.add(p); }
+  };
+
+  const top = DOOR_HEIGHT + 0.2;
   for (const g of GLASS) {
-    const glass = segBox(g, 0.04, 0, DOOR_HEIGHT + 0.2, M.glass);
+    const glass = segBox(g, 0.02, 0, top, M.glass);
     glass.name = 'Glass door';
-    house.add(glass);
+    const header = segBox(g, 0.15, top, WALL_HEIGHT, WALL_MATS);
+    header.name = 'Door lintel';
+    header.castShadow = true;
+    house.add(glass, header);
+    frame(g, 0.03, top, 'Glass door frame');
   }
   for (const w of WINDOWS) {
     const sill = segBox(w, 0.15, 0, WALL_HEIGHT / 2, WALL_MATS);
     sill.name = 'Window wall';
     sill.castShadow = true;
     sill.receiveShadow = true;
-    const pane = segBox(w, 0.04, WALL_HEIGHT / 2, WALL_HEIGHT, M.glass);
+    const ledge = segBox(w, 0.22, WALL_HEIGHT / 2, WALL_HEIGHT / 2 + 0.04, M.ledge);
+    ledge.name = 'Window sill';
+    ledge.castShadow = true;
+    const pane = segBox(w, 0.02, WALL_HEIGHT / 2, WALL_HEIGHT, M.glass);
     pane.name = 'Window';
-    house.add(sill, pane);
+    house.add(sill, ledge, pane);
+    frame(w, WALL_HEIGHT / 2 + 0.04, WALL_HEIGHT, 'Window frame');
+  }
+
+  // Façade finishes: thin panels on the outer face of the walls.
+  for (const c of CLADDING) {
+    const a = toM(c.seg[0], c.seg[1]);
+    const b = toM(c.seg[2], c.seg[3]);
+    const y0 = c.y0 ?? 0;
+    const y1 = c.y1 ?? WALL_HEIGHT;
+    const len = Math.hypot(b.x - a.x, b.z - a.z) + 0.2;
+    const finish = c.kind === 'grey' ? M.plaster : panelMaterial(c.kind, len, y1 - y0);
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(len, y1 - y0, 0.024), finish);
+    const out = 0.075 + 0.013;
+    panel.position.set(
+      (a.x + b.x) / 2 + (c.side === 'e' ? out : c.side === 'w' ? -out : 0), (y0 + y1) / 2,
+      (a.z + b.z) / 2 + (c.side === 's' ? out : c.side === 'n' ? -out : 0),
+    );
+    panel.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
+    panel.name = 'Facade';
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    house.add(panel);
+  }
+
+  // Canopy: a black frame with a see-through wooden soffit.
+  for (const c of CANOPY) {
+    const edges: Seg[] = [[c[0], c[1], c[2], c[1]], [c[0], c[3], c[2], c[3]], [c[0], c[1], c[0], c[3]], [c[2], c[1], c[2], c[3]]];
+    for (const e of edges) {
+      const beam = segBox(e, 0.12, 2.62, 2.86, M.frame);
+      beam.name = 'Canopy';
+      beam.castShadow = true;
+      house.add(beam);
+    }
+    const soffit = rectBox(c, 2.66, 2.7, M.soffit);
+    soffit.name = 'Canopy';
+    house.add(soffit);
   }
 
   for (const f of FURNITURE) {
     const o = furniture(f);
     o.name = f.kind[0].toUpperCase() + f.kind.slice(1);
-    o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; } });
+    o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = f.kind !== 'ac'; m.receiveShadow = true; } });
     house.add(o);
   }
   return house;
@@ -281,6 +620,72 @@ export async function upgradeCars(house: THREE.Group, glb: ArrayBuffer) {
   });
 }
 
+// ---------- rendering ----------
+
+/**
+ * Light from a painted sky: blue overhead, pale at the horizon, a warm glow around the sun.
+ * Used as the scene's environment, so shade is cool and sunlit faces are warm, as outdoors.
+ */
+function skyEnvironment(pmrem: THREE.PMREMGenerator, sun: THREE.Vector3) {
+  const sky = new THREE.Scene();
+  const material = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: { sun: { value: sun } },
+    vertexShader: 'varying vec3 dir; void main() { dir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      uniform vec3 sun;
+      varying vec3 dir;
+      void main() {
+        vec3 v = normalize(dir);
+        vec3 zenith = vec3(0.34, 0.5, 0.9) * 1.1;
+        vec3 horizon = vec3(0.82, 0.89, 1.0) * 1.55;
+        vec3 ground = vec3(0.38, 0.35, 0.31) * 0.8;
+        vec3 c = v.y > 0.0 ? mix(horizon, zenith, pow(v.y, 0.45)) : mix(horizon * 0.7, ground, smoothstep(0.0, -0.2, v.y));
+        float s = max(dot(v, sun), 0.0);
+        c += vec3(1.0, 0.8, 0.58) * (pow(s, 6.0) * 0.8 + pow(s, 48.0) * 3.0) * smoothstep(-0.08, 0.02, v.y);
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(50, 48, 24), material);
+  sky.add(dome);
+  const texture = pmrem.fromScene(sky, 0.02).texture;
+  dome.geometry.dispose();
+  material.dispose();
+  return texture;
+}
+
+/** Final look, applied to the finished picture: light sharpening, split toning, contrast, vignette, grain. */
+const GRADE = {
+  uniforms: { tDiffuse: { value: null as THREE.Texture | null }, texel: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform vec2 texel;
+    varying vec2 vUv;
+    float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+    void main() {
+      vec4 px = texture2D(tDiffuse, vUv);
+      vec3 c = px.rgb;
+      // unsharp mask
+      vec3 blur = 0.25 * (texture2D(tDiffuse, vUv + vec2(texel.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(texel.x, 0.0)).rgb
+        + texture2D(tDiffuse, vUv + vec2(0.0, texel.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, texel.y)).rgb);
+      c += (c - blur) * 0.3;
+      // split tone: cool shadows, warm highlights
+      c *= mix(vec3(0.95, 0.99, 1.06), vec3(1.04, 1.0, 0.95), smoothstep(0.15, 0.85, luma(c)));
+      // gentle S-curve, a touch more colour
+      c = clamp(c, 0.0, 1.0);
+      c = mix(c, c * c * (3.0 - 2.0 * c), 0.3);
+      c = mix(vec3(luma(c)), c, 1.1);
+      // vignette and film grain
+      vec2 q = vUv - 0.5;
+      c *= 1.0 - dot(q, q) * 0.3;
+      float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+      c += (n - 0.5) * 0.02 * px.a;
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), px.a);
+    }`,
+};
+
 export interface HouseScene {
   renderer: THREE.WebGLRenderer;
   camera: THREE.PerspectiveCamera;
@@ -298,24 +703,47 @@ export interface HouseScene {
 }
 
 export function createHouse(canvas: HTMLCanvasElement): HouseScene {
+  const small = window.matchMedia('(max-width: 700px)').matches;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.8;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 200);
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x7d8378, 1.5));
-  const sun = new THREE.DirectionalLight(0xfff6e8, 2.4);
-  sun.position.set(CENTER.x - 10, 25, CENTER.z + 14);
+  // A warm, fairly low sun, and the sky as the fill light.
+  const sunFrom = new THREE.Vector3(-13, 20, 9);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = skyEnvironment(pmrem, sunFrom.clone().normalize());
+  scene.environment = env;
+  scene.environmentIntensity = 0.75;
+
+  const sun = new THREE.DirectionalLight(0xffdfb5, 3);
+  sun.position.set(CENTER.x + sunFrom.x, sunFrom.y, CENTER.z + sunFrom.z);
   sun.target.position.set(CENTER.x, 0, CENTER.z);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 });
-  sun.shadow.bias = -0.0005;
+  sun.shadow.mapSize.setScalar(small ? 2048 : 4096);
+  Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 80 });
+  sun.shadow.bias = -0.0003;
+  sun.shadow.normalBias = 0.03;
+  sun.shadow.radius = 5;
   scene.add(sun, sun.target);
+
+  // Ambient occlusion darkens the creases where walls meet floors, as in a real model.
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+  composer.addPass(new RenderPass(scene, camera));
+  const gtao = new GTAOPass(scene, camera, 1, 1);
+  gtao.updateGtaoMaterial({ radius: 0.7, distanceExponent: 1.4, thickness: 1.4, scale: 1.5, samples: 16 });
+  gtao.blendIntensity = 0.95;
+  composer.addPass(gtao);
+  // Bright sunlit surfaces glow a little, then the picture is tone mapped and graded.
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.12, 0.7, 1.1));
+  composer.addPass(new OutputPass());
+  const grade = new ShaderPass(GRADE);
+  composer.addPass(grade);
 
   const house = buildHouse();
   scene.add(house);
@@ -344,7 +772,7 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
   };
   resetView();
 
-  const render = () => renderer.render(scene, camera);
+  const render = () => composer.render();
   const v = new THREE.Vector3();
   const raycaster = new THREE.Raycaster();
   const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -356,6 +784,10 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
     render,
     resize(w, h) {
       renderer.setSize(w, h, false);
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(w, h);
+      const ratio = renderer.getPixelRatio();
+      grade.uniforms.texel.value.set(1 / (w * ratio), 1 / (h * ratio));
       camera.aspect = w / h;
       // Keep the whole house in view on narrow screens.
       camera.fov = w / h < 1 ? 50 : 35;
@@ -387,8 +819,15 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
     dispose() {
       disposed = true;
       controls.dispose();
-      scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+      scene.traverse((o) => {
+        if (!(o instanceof THREE.Mesh)) return;
+        o.geometry.dispose();
+        for (const m of [o.material].flat() as THREE.MeshStandardMaterial[]) { m.map?.dispose(); m.dispose(); }
+      });
       Object.values(M).forEach((m) => m.dispose());
+      composer.dispose();
+      env.dispose();
+      pmrem.dispose();
       renderer.dispose();
     },
   };
