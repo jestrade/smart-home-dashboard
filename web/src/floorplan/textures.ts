@@ -216,6 +216,56 @@ const SPECS: Record<Ground, Spec> = {
   },
 };
 
+// ---------- wear and dirt ----------
+
+const WX_NOISE = `
+varying vec3 wxPos;
+float wxHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float wxNoise(vec3 x) {
+  vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(wxHash(i), wxHash(i + vec3(1, 0, 0)), f.x), mix(wxHash(i + vec3(0, 1, 0)), wxHash(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(wxHash(i + vec3(0, 0, 1)), wxHash(i + vec3(1, 0, 1)), f.x), mix(wxHash(i + vec3(0, 1, 1)), wxHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float wxFbm(vec3 p) { return 0.5 * wxNoise(p) + 0.25 * wxNoise(p * 2.03) + 0.125 * wxNoise(p * 4.01) + 0.125 * wxNoise(p * 8.1); }
+`;
+// Walls: splashed dirt near the ground, rain streaks running down from the top, faint blotches.
+const WX_WALL = `{
+  float blot = wxFbm(wxPos * 0.7);
+  float splash = smoothstep(0.45, 0.0, wxPos.y) * (0.45 + 0.55 * wxNoise(vec3(wxPos.x * 4.0, 0.0, wxPos.z * 4.0)));
+  float run = wxNoise(vec3((wxPos.x + wxPos.z) * 9.0, wxPos.y * 0.5, 3.0));
+  float streak = smoothstep(0.62, 0.9, run) * smoothstep(1.2, 3.0, wxPos.y);
+  float dirt = clamp((splash * 0.5 + streak * 0.35 + (blot - 0.5) * 0.25) * AMT, 0.0, 0.8);
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.55, 0.5, 0.44), dirt);
+}`;
+// Floors: broad stains and fine grime.
+const WX_FLOOR = `{
+  float blot = wxFbm(vec3(wxPos.x * 0.6, 0.0, wxPos.z * 0.6));
+  float fine = wxFbm(vec3(wxPos.x * 5.0, 1.0, wxPos.z * 5.0));
+  float dirt = clamp((smoothstep(0.45, 0.8, blot) * 0.5 + (fine - 0.5) * 0.3) * AMT, 0.0, 0.7);
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.6, 0.56, 0.5), dirt);
+}`;
+
+/** Adds wear to a material: dirt in its colour and uneven shine, laid out in world space so it never repeats. */
+export function weather<T extends THREE.MeshStandardMaterial>(m: T, kind: 'wall' | 'floor', amount: number): T {
+  const amt = amount.toFixed(2);
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 wxPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nwxPos = (modelMatrix * vec4(position, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>\n${WX_NOISE}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${kind === 'wall' ? WX_WALL : WX_FLOOR}`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (wxFbm(wxPos * 1.3) - 0.5) * 0.35 * AMT, 0.05, 1.0);')
+      .replace(/AMT/g, amt);
+  };
+  m.customProgramCacheKey = () => `wx-${kind}-${amt}`;
+  return m;
+}
+
+const WEAR: Record<Ground, number> = {
+  tile: 0.3, wood: 0.7, concrete: 1, grass: 0.5, paving: 1, gravel: 0.5, asphalt: 1, pebble: 0.3, cladding: 0.7, brick: 0.9,
+};
+
 const painted = new Map<Ground, THREE.CanvasTexture>();
 
 function texture(kind: Ground) {
@@ -249,7 +299,7 @@ export function surfaceMaterial(kind: Ground, a: { x: number; z: number }, b: { 
     m.bumpMap = map;
     m.bumpScale = spec.bump;
   }
-  return m;
+  return weather(m, 'floor', WEAR[kind]);
 }
 
 /** The material for a wall finish on a panel `length` metres long and `height` metres tall. */
@@ -264,5 +314,5 @@ export function panelMaterial(kind: Ground, length: number, height: number) {
     m.bumpMap = map;
     m.bumpScale = spec.bump;
   }
-  return m;
+  return weather(m, 'wall', WEAR[kind]);
 }

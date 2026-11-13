@@ -14,13 +14,13 @@ import {
   CANOPY, CENTER, CLADDING, DOORS, DOOR_HEIGHT, EXTERIOR_WALLS, EXTRA_FLOORS, FLOORS, FURNITURE, GLASS, INTERIOR_WALLS, WINDOWS, LOT, SIDEWALK, WALL_HEIGHT,
   toM, type Furniture, type Rect, type Seg,
 } from './plan';
-import { panelMaterial, rng, surfaceMaterial, type Ground } from './textures';
+import { panelMaterial, rng, surfaceMaterial, weather, type Ground } from './textures';
 
 const mat = (color: number, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0, ...extra });
 
 const M = {
-  wall: mat(0xf6f5f1, { roughness: 0.95 }),
+  wall: weather(mat(0xf6f5f1, { roughness: 0.95 }), 'wall', 0.3),
   cap: mat(0x3b3d41, { roughness: 0.8 }),
   glass: new THREE.MeshStandardMaterial({ color: 0xa9c6d6, transparent: true, opacity: 0.3, roughness: 0.05, envMapIntensity: 1.6 }),
   frame: mat(0x26282b, { roughness: 0.45, metalness: 0.5 }), // black aluminium
@@ -37,7 +37,7 @@ const M = {
   olive: mat(0x6f9a2e),
   olive2: mat(0x8fb53a),
   trunk: mat(0xb39a76),
-  plaster: mat(0x8c8e92, { roughness: 0.9 }),
+  plaster: weather(mat(0x8c8e92, { roughness: 0.9 }), 'wall', 0.8),
   doorWood: mat(0xcbc4b6, { roughness: 0.6 }),
   lamp: new THREE.MeshStandardMaterial({ color: 0xf4f1e6, emissive: 0xfff0c8, emissiveIntensity: 0.6, transparent: true, opacity: 0.85, roughness: 0.1 }),
   soffit: new THREE.MeshStandardMaterial({ color: 0xb98a5a, transparent: true, opacity: 0.2, roughness: 0.6, depthWrite: false }),
@@ -623,6 +623,118 @@ export async function upgradeCars(house: THREE.Group, glb: ArrayBuffer) {
 // ---------- rendering ----------
 
 /**
+ * Sun shadows whose edge widens with the distance to whatever casts them: crisp where a wall
+ * meets the floor, soft further away. Replaces three.js's fixed-blur filter (its PCF slot).
+ */
+const PCSS = `
+#define PCSS_SEARCH 0.011
+#define PCSS_SPREAD 0.14
+#define PCSS_MIN 0.0005
+vec2 pcssDisk(int i, float n, float turn) {
+  float r = sqrt((float(i) + 0.5) / n);
+  float t = float(i) * 2.39996323 + turn;
+  return r * vec2(cos(t), sin(t));
+}
+float pcssShadow(sampler2D map, vec4 coord) {
+  vec2 uv = coord.xy;
+  float z = coord.z;
+  // Slope of the receiving surface in the shadow map, so a wide filter does not shade the surface itself.
+  vec3 dx = dFdx(coord.xyz);
+  vec3 dy = dFdy(coord.xyz);
+  float det = dx.x * dy.y - dx.y * dy.x;
+  vec2 slope = abs(det) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / det : vec2(0.0);
+  slope = clamp(slope, vec2(-2.0), vec2(2.0));
+  float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  float sum = 0.0;
+  float n = 0.0;
+  for (int i = 0; i < 16; i++) {
+    vec2 o = pcssDisk(i, 16.0, turn) * PCSS_SEARCH;
+    float d = unpackRGBAToDepth(texture2D(map, uv + o));
+    if (d < z + dot(slope, o) - 0.0008) { sum += d; n += 1.0; }
+  }
+  if (n < 0.5) return 1.0;
+  float spread = clamp((z - sum / n) * PCSS_SPREAD, PCSS_MIN, PCSS_SEARCH * 1.6);
+  float lit = 0.0;
+  for (int i = 0; i < 28; i++) {
+    vec2 o = pcssDisk(i, 28.0, turn) * spread;
+    lit += step(z + dot(slope, o) - 0.0008, unpackRGBAToDepth(texture2D(map, uv + o)));
+  }
+  return lit / 28.0;
+}
+`;
+let pcssInstalled = false;
+function installSoftShadows() {
+  if (pcssInstalled) return;
+  pcssInstalled = true;
+  const chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
+  const slot = '#if defined( SHADOWMAP_TYPE_PCF )';
+  if (!chunk.includes(slot) || !chunk.includes('#ifdef USE_SHADOWMAP')) return; // a different three.js: keep its own filter
+  THREE.ShaderChunk.shadowmap_pars_fragment = chunk
+    .replace('#ifdef USE_SHADOWMAP', `#ifdef USE_SHADOWMAP\n${PCSS}`)
+    .replace(slot, `${slot}\n\t\t\tshadow = pcssShadow( shadowMap, shadowCoord );\n\t\t#elif defined( SHADOWMAP_TYPE_PCF_STOCK )`);
+}
+
+/**
+ * Sunlit haze: marches each view ray through the air inside the house and adds a little light
+ * wherever the sun reaches, so the shade behind walls reads as shafts. Warmer when looking sunwards.
+ */
+const AIR = {
+  uniforms: {
+    tDiffuse: { value: null as THREE.Texture | null },
+    tDepth: { value: null as THREE.Texture | null },
+    tShadow: { value: null as THREE.Texture | null },
+    shadowMatrix: { value: new THREE.Matrix4() },
+    projInv: { value: new THREE.Matrix4() },
+    viewInv: { value: new THREE.Matrix4() },
+    camPos: { value: new THREE.Vector3() },
+    sunDir: { value: new THREE.Vector3() },
+    top: { value: 3.2 },
+    strength: { value: 0 },
+  },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    #include <packing>
+    uniform sampler2D tDiffuse;
+    uniform sampler2D tDepth;
+    uniform sampler2D tShadow;
+    uniform mat4 shadowMatrix;
+    uniform mat4 projInv;
+    uniform mat4 viewInv;
+    uniform vec3 camPos;
+    uniform vec3 sunDir;
+    uniform float top;
+    uniform float strength;
+    varying vec2 vUv;
+    void main() {
+      vec4 px = texture2D(tDiffuse, vUv);
+      float depth = texture2D(tDepth, vUv).x;
+      if (strength <= 0.0 || depth >= 1.0) { gl_FragColor = px; return; }
+      vec4 view = projInv * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+      vec3 world = (viewInv * vec4(view.xyz / view.w, 1.0)).xyz;
+      vec3 ray = world - camPos;
+      float len = length(ray);
+      vec3 dir = ray / len;
+      // Only the air below the wall tops counts.
+      float start = camPos.y > top && dir.y < 0.0 ? (top - camPos.y) / dir.y : 0.0;
+      float span = len - start;
+      if (span <= 0.0) { gl_FragColor = px; return; }
+      float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+      float lit = 0.0;
+      for (int i = 0; i < 20; i++) {
+        vec3 p = camPos + dir * (start + span * (float(i) + jitter) / 20.0);
+        vec4 sc = shadowMatrix * vec4(p, 1.0);
+        sc.xyz /= sc.w;
+        bool inside = sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0;
+        lit += inside ? step(sc.z - 0.002, unpackRGBAToDepth(texture2D(tShadow, sc.xy))) : 1.0;
+      }
+      float sunward = max(dot(dir, sunDir), 0.0);
+      float phase = 0.55 + 1.6 * pow(sunward, 3.0);
+      vec3 glow = vec3(1.0, 0.86, 0.66) * (lit / 20.0) * min(span, 12.0) * phase * strength;
+      gl_FragColor = vec4(px.rgb + glow * px.a, px.a);
+    }`,
+};
+
+/**
  * Light from a painted sky: blue overhead, pale at the horizon, a warm glow around the sun.
  * Used as the scene's environment, so shade is cool and sunlit faces are warm, as outdoors.
  */
@@ -704,10 +816,11 @@ export interface HouseScene {
 
 export function createHouse(canvas: HTMLCanvasElement): HouseScene {
   const small = window.matchMedia('(max-width: 700px)').matches;
+  installSoftShadows();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap; // the slot the soft-shadow filter is installed in
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.8;
 
@@ -739,6 +852,10 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
   gtao.updateGtaoMaterial({ radius: 0.7, distanceExponent: 1.4, thickness: 1.4, scale: 1.5, samples: 16 });
   gtao.blendIntensity = 0.95;
   composer.addPass(gtao);
+  const air = new ShaderPass(AIR);
+  air.uniforms.tDepth.value = gtao.depthTexture;
+  air.uniforms.sunDir.value.copy(sunFrom).normalize();
+  composer.addPass(air);
   // Bright sunlit surfaces glow a little, then the picture is tone mapped and graded.
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.12, 0.7, 1.1));
   composer.addPass(new OutputPass());
@@ -772,7 +889,20 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
   };
   resetView();
 
-  const render = () => composer.render();
+  let again = 0;
+  const render = () => {
+    const u = air.uniforms;
+    u.projInv.value.copy(camera.projectionMatrixInverse);
+    u.viewInv.value.copy(camera.matrixWorld);
+    u.camPos.value.copy(camera.position);
+    u.shadowMatrix.value.copy(sun.shadow.matrix);
+    const ready = Boolean(sun.shadow.map);
+    u.tShadow.value = sun.shadow.map?.texture ?? null;
+    u.strength.value = ready ? 0.007 : 0;
+    composer.render();
+    // The sun's shadow map only exists after the first frame; draw once more so the haze can use it.
+    if (!ready && !again) again = requestAnimationFrame(() => { again = 0; render(); });
+  };
   const v = new THREE.Vector3();
   const raycaster = new THREE.Raycaster();
   const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -818,6 +948,7 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
     resetView,
     dispose() {
       disposed = true;
+      cancelAnimationFrame(again);
       controls.dispose();
       scene.traverse((o) => {
         if (!(o instanceof THREE.Mesh)) return;
