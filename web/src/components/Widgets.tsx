@@ -1,4 +1,10 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import {
+  DndContext, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useDroppable, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragOverEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Icon } from './Icon';
 import { CollapseButton, useCollapsed } from './Collapse';
 import type { HomeLayout, WeatherLocation } from '../types';
@@ -34,18 +40,54 @@ function firstDayOfWeek() {
   }
 }
 
+const WIDGETS = ['clock', 'date', 'calendar', 'weather'] as const;
+type WidgetId = (typeof WIDGETS)[number];
+const NAMES: Record<WidgetId, string> = { clock: 'Time', date: 'Date', calendar: 'Calendar', weather: 'Weather' };
+const isWidget = (id: string): id is WidgetId => (WIDGETS as readonly string[]).includes(id);
+
+const SIDES = ['left', 'right'] as const;
+type Side = (typeof SIDES)[number];
+type Columns = Record<Side, WidgetId[]>;
+const SIDE_NAMES: Record<Side, string> = { left: 'Left column', right: 'Right column' };
+
+/** The saved columns, cleaned up; older layouts (one ordered list, or nothing) are spread over both columns. */
+function readColumns(w: HomeLayout['widgets']): Columns {
+  const seen = new Set<WidgetId>();
+  const clean = (list: string[] = []) => list.filter((id): id is WidgetId => isWidget(id) && !seen.has(id) && Boolean(seen.add(id)));
+  if (w?.columns) return { left: clean(w.columns.left), right: clean(w.columns.right) };
+  const items = clean(w?.items ?? ['clock', 'date', 'calendar', 'weather']);
+  return { left: items.filter((_, i) => i % 2 === 0), right: items.filter((_, i) => i % 2 === 1) };
+}
+const sideOf = (cols: Columns, id: string): Side | undefined =>
+  id.startsWith('col|') ? (id.slice(4) as Side) : SIDES.find((s) => cols[s].includes(id as WidgetId));
+
+/** Over a widget if the pointer is on one, else over the column it is in. */
+const collision: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  const widgets = hits.filter((h) => !String(h.id).startsWith('col|'));
+  if (widgets.length) return widgets;
+  if (hits.length) return hits;
+  return closestCenter(args);
+};
+
+/** While editing, each widget's head gets a drag grip and a remove button from the tile around it. */
+const TileTools = createContext<{ grip?: ReactNode; remove?: ReactNode }>({});
+
 /** Frame shared by all widgets: title row with a collapse chevron; a one-line summary when collapsed. */
 function WidgetShell({ id, title, summary, className, children, actions }: {
   id: string; title: string; summary: string; className: string; children: ReactNode; actions?: ReactNode;
 }) {
   const [collapsed, toggle] = useCollapsed(`widget:${id}`);
   const bodyId = useId();
+  const { grip, remove } = useContext(TileTools);
   return (
     <section className={`card widget ${className} ${collapsed ? 'collapsed' : ''}`} aria-label={title}>
       <div className="widget-head">
+        {grip}
         <span className="label">{title}</span>
         {collapsed && <span className="widget-summary">{summary}</span>}
         {!collapsed && actions}
+        {remove}
         <CollapseButton collapsed={collapsed} onToggle={toggle} label={title} controls={bodyId} />
       </div>
       {!collapsed && <div id={bodyId} className="widget-body">{children}</div>}
@@ -308,11 +350,116 @@ function WeatherWidget({ location, onLocation }: { location?: WeatherLocation; o
   );
 }
 
+/** A widget in a column; draggable by its grip while editing. */
+function Tile({ id, editing, onRemove, children }: { id: WidgetId; editing: boolean; onRemove: () => void; children: ReactNode }) {
+  const { setNodeRef, setActivatorNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id, disabled: !editing });
+  const tools = editing
+    ? {
+        grip: (
+          <button ref={setActivatorNodeRef} type="button" className="grip widget-grip" aria-label={`Move ${NAMES[id]}`} title="Drag to move" {...attributes} {...listeners}>
+            <Icon name="grip" size={16} />
+          </button>
+        ),
+        remove: (
+          <button type="button" className="collapse-btn widget-remove" aria-label={`Remove ${NAMES[id]}`} title="Remove" onClick={onRemove}>
+            <Icon name="close" size={16} />
+          </button>
+        ),
+      }
+    : {};
+  return (
+    <div ref={setNodeRef} className={`widget-tile ${isDragging ? 'dragging' : ''}`}
+      style={{ transform: CSS.Translate.toString(transform), transition }}>
+      <TileTools.Provider value={tools}>{children}</TileTools.Provider>
+    </div>
+  );
+}
+
+/** One of the two columns: its widgets stacked top to bottom, and (while editing) a place to drop or add more. */
+function Column({ side, items, editing, missing, onAdd, children }: {
+  side: Side; items: WidgetId[]; editing: boolean; missing: WidgetId[]; onAdd: (id: WidgetId) => void; children: ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `col|${side}` });
+  return (
+    <div ref={setNodeRef} className={`widget-col ${isOver ? 'over' : ''}`} aria-label={SIDE_NAMES[side]}>
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>{children}</SortableContext>
+      {editing && missing.length > 0 && (
+        <div className="widget-add">
+          <span className="label">Add here</span>
+          <div className="widget-add-list">
+            {missing.map((id) => (
+              <button key={id} type="button" className="btn small" onClick={() => onAdd(id)}>
+                <Icon name="plus" size={14} /> {NAMES[id]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {editing && items.length === 0 && missing.length === 0 && <p className="fine widget-empty">Drop a widget here</p>}
+    </div>
+  );
+}
+
 export function Widgets({ layout, onLayout }: { layout: HomeLayout; onLayout: (l: HomeLayout) => void }) {
   const now = useNow();
   const setWeather = (weather: WeatherLocation) => onLayout({ ...layout, widgets: { ...layout.widgets, weather } });
   const [collapsed, toggle] = useCollapsed('widgets');
+  const [editing, setEditing] = useState(false);
   const gridId = useId();
+
+  const saved = readColumns(layout.widgets);
+  // While dragging, widgets move between columns in this draft; it is saved when the drag ends.
+  const [draft, setDraft] = useState<Columns | null>(null);
+  const cols = draft ?? saved;
+  const missing = WIDGETS.filter((id) => !cols.left.includes(id) && !cols.right.includes(id));
+  const save = (next: Columns) => {
+    const { items: _old, ...rest } = layout.widgets ?? {};
+    onLayout({ ...layout, widgets: { ...rest, columns: next } });
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  /** Moves the dragged widget into the column it is over, at the place of the widget under the pointer. */
+  const across = (base: Columns, activeId: string, overId: string): Columns => {
+    const from = sideOf(base, activeId);
+    const to = sideOf(base, overId);
+    if (!from || !to || from === to) return base;
+    const id = activeId as WidgetId;
+    const at = base[to].indexOf(overId as WidgetId);
+    const target = base[to].filter((w) => w !== id);
+    target.splice(at >= 0 ? at : target.length, 0, id);
+    return { ...base, [from]: base[from].filter((w) => w !== id), [to]: target } as Columns;
+  };
+  const onDragOver = ({ active, over }: DragOverEvent) => {
+    if (!over) return;
+    const base = draft ?? saved;
+    const next = across(base, String(active.id), String(over.id));
+    if (next !== base) setDraft(next);
+  };
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    let next = draft ?? saved;
+    if (over) {
+      next = across(next, String(active.id), String(over.id));
+      const side = sideOf(next, String(active.id));
+      if (side && side === sideOf(next, String(over.id)) && !String(over.id).startsWith('col|')) {
+        const a = next[side].indexOf(active.id as WidgetId);
+        const b = next[side].indexOf(over.id as WidgetId);
+        if (a !== b) next = { ...next, [side]: arrayMove(next[side], a, b) };
+      }
+    }
+    setDraft(null);
+    if (JSON.stringify(next) !== JSON.stringify(saved)) save(next);
+  };
+
+  const body: Record<WidgetId, ReactNode> = {
+    clock: <ClockWidget now={now} />,
+    date: <DateWidget now={now} />,
+    calendar: <CalendarWidget now={now} />,
+    weather: <WeatherWidget location={layout.widgets?.weather} onLocation={setWeather} />,
+  };
+
   return (
     <section className="widgets-section">
       <h2 className="section-title widgets-title">
@@ -325,13 +472,32 @@ export function Widgets({ layout, onLayout }: { layout: HomeLayout; onLayout: (l
           )}
           <span className={`chevron ${collapsed ? '' : 'open'}`}><Icon name="chevron" size={16} /></span>
         </button>
+        {!collapsed && (
+          <button type="button" className={`btn small widgets-edit ${editing ? 'primary' : ''}`} onClick={() => setEditing(!editing)}>
+            <Icon name="edit" size={14} /> {editing ? 'Done' : 'Edit'}
+          </button>
+        )}
       </h2>
       {!collapsed && (
-        <div className="widgets" id={gridId}>
-          <ClockWidget now={now} />
-          <DateWidget now={now} />
-          <CalendarWidget now={now} />
-          <WeatherWidget location={layout.widgets?.weather} onLocation={setWeather} />
+        <div id={gridId}>
+          {editing && <p className="fine widgets-hint">Drag a widget by its grip to move it up, down or to the other column. Use × to remove it.</p>}
+          <DndContext sensors={sensors} collisionDetection={collision}
+            onDragStart={() => setDraft(saved)} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setDraft(null)}>
+            <div className={`widgets ${editing ? 'editing' : ''}`}>
+              {SIDES.map((side) => (
+                <Column key={side} side={side} items={cols[side]} editing={editing} missing={missing}
+                  onAdd={(id) => save({ ...cols, [side]: [...cols[side], id] })}>
+                  {cols[side].map((id) => (
+                    <Tile key={id} id={id} editing={editing}
+                      onRemove={() => save({ ...cols, [side]: cols[side].filter((w) => w !== id) })}>
+                      {body[id]}
+                    </Tile>
+                  ))}
+                </Column>
+              ))}
+            </div>
+          </DndContext>
+          {!editing && missing.length === WIDGETS.length && <p className="fine">No widgets here. Choose Edit to add some.</p>}
         </div>
       )}
     </section>

@@ -1,6 +1,8 @@
-// Samsung SmartThings via the REST API, authorised by a webhook SmartApp
-// ("Automation" registered in the Developer Workspace and installed from the SmartThings app).
-// The SmartApp's INSTALL lifecycle (see functions/src/lib/smartapp.js) stores the tokens used here.
+// Samsung SmartThings via the REST API. Two ways to authorise it:
+// - a Personal Access Token from account.smartthings.com/tokens: quick, but it lasts only 24 hours;
+// - a webhook SmartApp ("Automation" registered in the Developer Workspace and installed from the
+//   SmartThings app), whose INSTALL lifecycle (functions/src/lib/smartapp.js) stores refreshable tokens.
+// The SmartApp is used when it is installed; otherwise the personal token.
 // Docs: https://developer.smartthings.com/docs/api/public
 import { fetchJson, ProviderError } from '../lib/http.js';
 
@@ -9,8 +11,9 @@ const TOKEN_URL = 'https://auth-global.api.smartthings.com/oauth/token';
 
 /** SmartApp access tokens last 5 minutes; refresh tokens 30 days and rotate on every use. */
 async function accessToken(cfg, ctx) {
+  if (!cfg.refreshToken && cfg.token) return cfg.token;
   if (cfg.accessToken && cfg.expiresAt > Date.now() + 30_000) return cfg.accessToken;
-  if (!cfg.refreshToken) throw new ProviderError('Not installed yet. Add the Home Dashboard automation in the SmartThings app.', 401);
+  if (!cfg.refreshToken) throw new ProviderError('Not connected yet. Save a personal access token, or add the Home Dashboard automation in the SmartThings app.', 401);
   if (!cfg.clientId || !cfg.clientSecret) throw new ProviderError('Save the SmartApp client ID and secret on the SmartThings card.', 401);
   let tok;
   try {
@@ -121,7 +124,14 @@ function normalize(d, status, rooms) {
 
 async function api(cfg, ctx, path, opts = {}) {
   const token = await accessToken(cfg, ctx);
-  return fetchJson(`${API}${path}`, { ...opts, headers: { Authorization: `Bearer ${token}` } });
+  try {
+    return await fetchJson(`${API}${path}`, { ...opts, headers: { Authorization: `Bearer ${token}` } });
+  } catch (e) {
+    if ((e.status === 401 || e.status === 403) && token === cfg.token) {
+      throw new ProviderError('SmartThings rejected the personal access token. Tokens last 24 hours: create a new one at account.smartthings.com/tokens and save it here.', 401);
+    }
+    throw e;
+  }
 }
 
 async function listAll(cfg, ctx, path) {
@@ -152,10 +162,11 @@ async function mapLimit(items, limit, fn) {
 
 export default {
   id: 'smartthings',
-  requiredConfig: ['clientId', 'clientSecret'],
-  configFields: ['clientId', 'clientSecret'],
-  // Connected once the SmartApp has been installed (tokens arrive via the webhook).
-  isConnected: (cfg) => Boolean(cfg.refreshToken),
+  requiredConfig: [],
+  configFields: ['token', 'clientId', 'clientSecret'],
+  isConfigured: (cfg) => Boolean(cfg.token || (cfg.clientId && cfg.clientSecret)),
+  // Connected with a personal token, or once the SmartApp has been installed (tokens arrive via the webhook).
+  isConnected: (cfg) => Boolean(cfg.token || cfg.refreshToken),
 
   async listDevices(cfg, ctx) {
     const [devices, locations] = await Promise.all([listAll(cfg, ctx, '/devices'), listAll(cfg, ctx, '/locations')]);

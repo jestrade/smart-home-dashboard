@@ -668,6 +668,7 @@ function installSoftShadows() {
   pcssInstalled = true;
   const chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
   const slot = '#if defined( SHADOWMAP_TYPE_PCF )';
+  if (chunk.includes('pcssShadow')) return; // already installed (e.g. this module was reloaded)
   if (!chunk.includes(slot) || !chunk.includes('#ifdef USE_SHADOWMAP')) return; // a different three.js: keep its own filter
   THREE.ShaderChunk.shadowmap_pars_fragment = chunk
     .replace('#ifdef USE_SHADOWMAP', `#ifdef USE_SHADOWMAP\n${PCSS}`)

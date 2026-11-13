@@ -99,13 +99,33 @@ export interface DeviceState {
   monthKwh?: number;
   yearKwh?: number;
   totalKwh?: number;
-  income?: { today?: number; month?: number; total?: number; currency?: string };
+  income?: { today?: number; month?: number; year?: number; total?: number; currency?: string; pricePerKwh?: number };
+  /** Grid power: + sending to the grid, − buying from it. */
   flow?: { homeLoadKw?: number; gridKw?: number; batteryKw?: number; batteryPercent?: number };
   todayGrid?: { boughtKwh?: number; soldKwh?: number; homeKwh?: number };
+  periods?: Partial<Record<'day' | 'month' | 'year' | 'total', EnergyBalance>>;
   peakSunHours?: number;
-  curve?: { t: string; kw: number }[];
-  days?: { day: string; kwh: number }[];
+  weather?: { day?: string; night?: string; minC?: number; maxC?: number; sunrise?: string; sunset?: string; humidity?: number; windMs?: number; windDir?: string };
+  environment?: { co2Kg?: number; coalKg?: number; trees?: number };
+  plant?: { place?: string; tiltDeg?: number; azimuthDeg?: number; inverterKw?: number; since?: string; days?: number; alarms?: number };
+  curve?: { t: string; kw: number; homeKw?: number; gridKw?: number }[];
+  days?: ({ day: string; kwh: number } & EnergyBalance)[];
+  months?: ({ month: string } & EnergyBalance)[];
+  years?: ({ year: string } & EnergyBalance)[];
   inverters?: { sn: string; model?: string; state: string; kw?: number; todayKwh?: number; totalKwh?: number }[];
+}
+
+/** Energy over a period (kWh): made by the panels, used by the home, bought from and sold to the grid. */
+export interface EnergyBalance {
+  producedKwh?: number;
+  consumedKwh?: number;
+  importKwh?: number;
+  exportKwh?: number;
+  /** Solar energy used at home (produced − sold). */
+  selfKwh?: number;
+  /** What the solar energy was worth, at the plant's price per kWh. */
+  income?: number;
+  fullHours?: number;
 }
 
 export interface DevicePrefs {
@@ -165,7 +185,8 @@ export type AccessStatus = 'member' | 'unclaimed' | 'denied';
 export interface HomeLayout {
   rooms: string[];
   order: Record<string, string[]>;
-  widgets?: { weather?: WeatherLocation };
+  /** Today widgets: forecast place, and which widgets show in each of the two columns, top to bottom. */
+  widgets?: { weather?: WeatherLocation; columns?: { left?: string[]; right?: string[] }; items?: string[] };
   /** Order of the Home page's sections (ids: today, plan, summary, devices). */
   sections?: string[];
   /** Floor plan: dashboard room → plan zone id ('' = not on the plan), and dragged pin positions [x, z] in metres. */

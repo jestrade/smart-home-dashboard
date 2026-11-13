@@ -121,13 +121,15 @@ PROVIDERS.push({
   pendingLabel: 'Install in app',
   docsUrl: 'https://developer.smartthings.com/docs/connected-services/create-a-smartapp',
   steps: [
-    'At developer.smartthings.com/workspace: New project → Automation for the SmartThings App → Register App → WebHook Endpoint, and paste the Target URL below.',
+    'Quick way: at account.smartthings.com/tokens, sign in with your Samsung account, Generate new token, tick Devices (all) and Locations (all), and paste the token below. SmartThings makes these tokens last 24 hours, so this is for trying it out.',
+    'Lasting way: at developer.smartthings.com/workspace: New project → Automation for the SmartThings App → Register App → WebHook Endpoint, and paste the Target URL below.',
     'Select scopes r:devices:*, x:devices:* and r:locations:*. Copy the client ID and secret it shows (once), and save them here.',
     'Deploy the project to test. In the SmartThings app: enable Developer mode, then Automations → + → Discover → Home Dashboard, and allow access.',
   ],
   fields: [
-    { key: 'clientId', label: 'SmartApp client ID' },
-    { key: 'clientSecret', label: 'SmartApp client secret', secret: true },
+    { key: 'token', label: 'Personal access token (lasts 24 h)', secret: true, optional: true },
+    { key: 'clientId', label: 'SmartApp client ID', optional: true },
+    { key: 'clientSecret', label: 'SmartApp client secret', secret: true, optional: true },
   ],
 });
 

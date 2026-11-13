@@ -41,7 +41,7 @@ export const ctxFor = (id) => ({
   saveConfig: (patch) => integrationRef(id).set(patch, { merge: true }),
 });
 
-export const isConfigured = (p, cfg) => p.requiredConfig.every((k) => cfg[k]);
+export const isConfigured = (p, cfg) => (p.isConfigured ? p.isConfigured(cfg) : p.requiredConfig.every((k) => cfg[k]));
 export const isConnected = (p, cfg) =>
   p.isConnected ? p.isConnected(cfg) : isConfigured(p, cfg) && (!p.oauth || Boolean(cfg.refreshToken));
 
