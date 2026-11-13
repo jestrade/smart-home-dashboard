@@ -8,6 +8,7 @@ import { accessStatusFor, assertMember, claimDashboard } from './lib/access.js';
 import { pkcePair, randomToken, requestToken, tokenPatch } from './lib/oauth.js';
 import {
   ACTION_CAPABILITY,
+  energyDay,
   getProvider,
   loadConfig,
   runCommand,
@@ -167,6 +168,17 @@ export const syncDevices = onCall({ timeoutSeconds: 120 }, async (req) => {
   await assertMember(req.auth);
   const provider = req.data?.provider;
   return { results: provider ? [await syncProvider(provider)] : await syncAll() };
+});
+
+export const getEnergyDay = onCall({ timeoutSeconds: 30, maxInstances: 2 }, async (req) => {
+  await assertMember(req.auth);
+  try {
+    return await energyDay(req.data?.date);
+  } catch (e) {
+    if (e.status === 400) throw new HttpsError('invalid-argument', e.message);
+    logger.error('energyDay failed', e);
+    throw new HttpsError('unavailable', 'Could not read that day from the solar plant.');
+  }
 });
 
 export const sendCommand = onCall({ timeoutSeconds: 60 }, async (req) => {

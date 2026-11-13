@@ -102,17 +102,10 @@ function withSelf(p) {
   return { ...p, selfKwh: self == null ? undefined : Math.round(Math.min(self, p.consumedKwh ?? self) * 1000) / 1000 };
 }
 
-async function stationState(cfg, station) {
-  const id = station.id;
-  const d = (await call(cfg, '/v1/api/stationDetail', { id })) ?? {};
-  const tz = num(d.timeZone ?? station.timeZone) ?? 0;
-  const currency = d.money ?? station.money;
-  const today = localDate(tz);
-  const capacityKwp = kw(d.capacity ?? station.capacity, d.capacityStr ?? station.capacityStr, 'kW');
-
-  // Today, every 5 minutes: solar, home and grid power. The rows' unit label says kW but the values
-  // are in watts, so the unit is decided from the size of the numbers against the plant's capacity.
-  const dayPoints = (await optional('stationDay', () => call(cfg, '/v1/api/stationDay', { id, money: currency, time: today, timeZone: tz }))) ?? [];
+// One day, every 15 minutes: solar, home and grid power. The rows' unit label says kW but the
+// values are in watts, so the unit is decided from the size of the numbers against the capacity.
+async function dayCurve(cfg, id, { currency, tz, capacityKwp }, date) {
+  const dayPoints = (await optional('stationDay', () => call(cfg, '/v1/api/stationDay', { id, money: currency, time: date, timeZone: tz }))) ?? [];
   const rows = Array.isArray(dayPoints) ? dayPoints : [];
   const peak = Math.max(0, ...rows.map((p) => Math.abs(num(p.power) ?? 0)), ...rows.map((p) => Math.abs(num(p.familyLoadPower) ?? 0)));
   const toKw = peak > (capacityKwp ?? 10) * 3 ? (v) => (num(v) == null ? undefined : Math.round(num(v)) / 1000) : (v) => num(v);
@@ -126,6 +119,18 @@ async function stationState(cfg, station) {
     lastSlot = slot;
     curve.push(clean({ t: label, kw: toKw(p.power) ?? 0, homeKw: toKw(p.familyLoadPower), gridKw: toKw(p.psum) }));
   }
+  return curve;
+}
+
+async function stationState(cfg, station) {
+  const id = station.id;
+  const d = (await call(cfg, '/v1/api/stationDetail', { id })) ?? {};
+  const tz = num(d.timeZone ?? station.timeZone) ?? 0;
+  const currency = d.money ?? station.money;
+  const today = localDate(tz);
+  const capacityKwp = kw(d.capacity ?? station.capacity, d.capacityStr ?? station.capacityStr, 'kW');
+
+  const curve = await dayCurve(cfg, id, { currency, tz, capacityKwp }, today);
 
   // Daily balance for the last 30 days (current + previous month).
   const thisMonth = today.slice(0, 7);
@@ -245,7 +250,7 @@ async function stationState(cfg, station) {
     online: group !== 'offline',
     state: clean(state),
     capabilities: [],
-    meta: { stationId: String(id) },
+    meta: { stationId: String(id), currency, tz, capacityKwp },
     suggestedRoom: 'Roof',
   };
 }
@@ -262,6 +267,22 @@ export default {
     const out = [];
     for (const s of stations) out.push(await stationState(cfg, s)); // sequential: API rate limits
     return out;
+  },
+
+  /** A past or present day: the power curve and that day's balance (from the month's rows). */
+  async energyDay(cfg, device, date) {
+    const id = device.meta?.stationId ?? device.providerId;
+    let { currency, tz, capacityKwp } = device.meta ?? {};
+    if (tz == null) {
+      const d = (await call(cfg, '/v1/api/stationDetail', { id })) ?? {};
+      tz = num(d.timeZone) ?? 0;
+      currency = d.money;
+      capacityKwp = kw(d.capacity, d.capacityStr, 'kW');
+    }
+    const curve = await dayCurve(cfg, id, { currency, tz, capacityKwp }, date);
+    const rows = (await optional(`stationMonth ${date.slice(0, 7)}`, () => call(cfg, '/v1/api/stationMonth', { id, money: currency, month: date.slice(0, 7), timeZone: tz }))) ?? [];
+    const row = (Array.isArray(rows) ? rows : []).find((r) => String(r.dateStr ?? '').slice(0, 10) === date);
+    return { date, curve, balance: row ? clean(withSelf(balanceRow(row))) : null };
   },
 
   async command() {

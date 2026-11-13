@@ -99,6 +99,8 @@ export interface DeviceState {
   /** Energy per local day, worked out at each sync; estimated from power when the device has no counter. */
   energyDays?: { day: string; kwh: number }[];
   energyEstimated?: boolean;
+  /** kWh per local hour ("yyyy-mm-ddTHH"), last 7 days. */
+  energyHours?: { h: string; kwh: number }[];
   // solar
   solarStatus?: 'ok' | 'offline' | 'alarm';
   powerKw?: number;
@@ -209,3 +211,10 @@ export interface WeatherLocation {
 
 export const displayName = (d: Device) => d.prefs?.name || d.name;
 export const roomOf = (d: Device) => d.prefs?.room || d.suggestedRoom || 'Unassigned';
+
+/** The solar plant's record of one day, fetched on demand. */
+export interface EnergyDay {
+  date: string;
+  today: string;
+  stations: { deviceId: string; curve: NonNullable<DeviceState['curve']>; balance: EnergyBalance | null }[];
+}

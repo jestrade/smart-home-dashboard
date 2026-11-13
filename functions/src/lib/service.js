@@ -64,6 +64,9 @@ export async function writeStatus(id, cfg, extra = {}) {
 
 const HOME_TZ = process.env.HOME_TZ || 'UTC';
 const localDay = (t = Date.now()) => new Intl.DateTimeFormat('en-CA', { timeZone: HOME_TZ }).format(new Date(t)); // yyyy-mm-dd
+const localHour = (t = Date.now()) =>
+  `${localDay(t)}T${new Intl.DateTimeFormat('en-GB', { timeZone: HOME_TZ, hour: '2-digit', hourCycle: 'h23' }).format(new Date(t))}`; // yyyy-mm-ddTHH
+const HOURS_KEPT = 7 * 24;
 
 /**
  * Daily energy for devices that measure it. Devices with a running counter (energyTotalKwh) are
@@ -75,7 +78,7 @@ function trackEnergy(d, prev) {
   if (d.type === 'vehicle' || d.type === 'charger' || d.type === 'solar') return d;
   const s = d.state ?? {};
   const now = Date.now();
-  const log = { starts: { ...(prev?.energyLog?.starts ?? {}) }, estimateKwh: prev?.energyLog?.estimateKwh ?? 0, lastAt: prev?.energyLog?.lastAt, lastW: prev?.energyLog?.lastW };
+  const log = { starts: { ...(prev?.energyLog?.starts ?? {}) }, hourStarts: { ...(prev?.energyLog?.hourStarts ?? {}) }, estimateKwh: prev?.energyLog?.estimateKwh ?? 0, lastAt: prev?.energyLog?.lastAt, lastW: prev?.energyLog?.lastW };
   let counter = Number.isFinite(s.energyTotalKwh) ? s.energyTotalKwh : null;
   let estimated = false;
   if (counter == null && Number.isFinite(s.powerW)) {
@@ -95,9 +98,15 @@ function trackEnergy(d, prev) {
   log.starts = Object.fromEntries(days.map((k) => [k, log.starts[k]]));
   const round = (x) => Math.max(0, Math.round(x * 1000) / 1000);
   const energyDays = days.map((day, i) => ({ day, kwh: round((i + 1 < days.length ? log.starts[days[i + 1]] : counter) - log.starts[day]) }));
+  // The same per hour (the counter at the first sync of each hour), for the last 7 days.
+  const hour = localHour(now);
+  if (log.hourStarts[hour] == null) log.hourStarts[hour] = counter;
+  const hours = Object.keys(log.hourStarts).sort().slice(-HOURS_KEPT);
+  log.hourStarts = Object.fromEntries(hours.map((k) => [k, log.hourStarts[k]]));
+  const energyHours = hours.map((h, i) => ({ h, kwh: round((i + 1 < hours.length ? log.hourStarts[hours[i + 1]] : counter) - log.hourStarts[h]) }));
   return {
     ...d,
-    state: { ...s, todayKwh: energyDays.at(-1).kwh, energyDays, ...(estimated ? { energyEstimated: true } : {}) },
+    state: { ...s, todayKwh: energyDays.at(-1).kwh, energyDays, energyHours, ...(estimated ? { energyEstimated: true } : {}) },
     energyLog: log,
   };
 }
@@ -183,4 +192,44 @@ export async function runCommand({ deviceId, action, value, email }) {
     if (e instanceof HttpsError) throw e;
     throw new HttpsError(e.status === 401 ? 'failed-precondition' : 'unavailable', e.message);
   }
+}
+
+// ---------- energy on a chosen day ----------
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TODAY_CACHE_MS = 10 * 60 * 1000;
+
+/**
+ * The solar plant's power curve and balance for one day. Past days never change, so they are kept
+ * in energyDays/* after the first request; today's is kept for 10 minutes. This keeps calls to the
+ * provider (and function time) low however often the page asks.
+ */
+export async function energyDay(date) {
+  if (!DAY_RE.test(date ?? '')) throw Object.assign(new Error('date must be yyyy-mm-dd.'), { status: 400 });
+  const today = localDay();
+  const oldest = localDay(Date.now() - 2 * 366 * 86400_000);
+  if (date > today || date < oldest) throw Object.assign(new Error('That date is out of range.'), { status: 400 });
+
+  const snap = await db.collection('devices').where('type', '==', 'solar').get();
+  const stations = [];
+  for (const doc of snap.docs) {
+    const dev = doc.data();
+    if (dev.stale) continue;
+    const p = getProvider(dev.provider);
+    if (!p.energyDay) continue;
+    const ref = db.doc(`energyDays/${doc.id}_${date}`);
+    const cached = (await ref.get()).data();
+    const fresh = cached && (date < today ? cached.complete : Date.now() - (cached.savedAt ?? 0) < TODAY_CACHE_MS);
+    if (fresh) {
+      stations.push({ deviceId: doc.id, curve: cached.curve ?? [], balance: cached.balance ?? null });
+      continue;
+    }
+    const cfg = await loadConfig(dev.provider);
+    if (!isConnected(p, cfg)) continue;
+    const r = await p.energyDay(cfg, dev, date);
+    // A past day is complete once the plant has reported it; an empty answer may be a hiccup.
+    await ref.set({ curve: r.curve, balance: r.balance, savedAt: Date.now(), complete: date < today && r.curve.length > 0 });
+    stations.push({ deviceId: doc.id, curve: r.curve, balance: r.balance });
+  }
+  return { date, today, stations };
 }

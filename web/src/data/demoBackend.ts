@@ -1,9 +1,30 @@
 import type { Backend } from './backend';
-import type { ActivityEvent, AppUser, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
+import type { ActivityEvent, AppUser, EnergyDay, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
 
 // In-memory backend with sample devices so the UI can be explored without any accounts.
 
 const now = () => new Date();
+const ymd = (t: number) => new Date(t).toLocaleDateString('en-CA');
+/** A day of 15-minute readings; k varies the day. */
+function demoCurve(k: number) {
+  return Array.from({ length: 96 }, (_, i) => {
+    const m = i * 15;
+    const cloud = 0.7 + 0.3 * Math.cos(k * 1.3 + i * 0.21);
+    const sun = m < 330 || m > 1080 ? 0 : Math.round(Math.max(0, 5.4 * Math.sin((Math.PI * (m - 330)) / 750) * cloud) * 100) / 100;
+    const home = Math.round((0.5 + (m > 900 && m < 1290 ? 2.6 : 0) + (m > 720 && m < 840 ? 1.8 : 0) + 0.3 * Math.sin(i + k)) * 100) / 100;
+    return { t: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, kw: sun, homeKw: home, gridKw: Math.round((sun - home) * 100) / 100 };
+  });
+}
+/** kWh per hour for the last 3 days, up to the current hour. */
+const demoHours = (base: number) => {
+  const out: { h: string; kwh: number }[] = [];
+  for (let t = Date.now() - 3 * 86400000; t <= Date.now(); t += 3600000) {
+    const d = new Date(t);
+    const hour = d.getHours();
+    out.push({ h: `${ymd(t)}T${String(hour).padStart(2, '0')}`, kwh: Math.round(base * (hour > 12 && hour < 23 ? 1 : 0.2) * (0.8 + 0.4 * Math.sin(t / 3.6e6)) * 100) / 100 });
+  }
+  return out;
+};
 const d = (x: Omit<Device, 'online' | 'updatedAt'> & Partial<Device>): Device => ({ online: true, updatedAt: now(), ...x });
 
 function seed(): Device[] {
@@ -38,8 +59,8 @@ function seed(): Device[] {
       health: { oil: 'NO_WARNING', coolant: 'NO_WARNING', brakeFluid: 'NO_WARNING' },
       warnings: [], lampChecks: 24, unavailable: ['details', 'diagnostics', 'fuel'],
     } }),
-    d({ id: 'smartthings_ac', provider: 'smartthings', providerId: 'ac1', name: 'AC Samsung', type: 'thermostat', suggestedRoom: 'Bedroom', capabilities: ['onoff', 'mode', 'thermostat'], state: { on: true, powerW: 1180, energyTotalKwh: 412.6, todayKwh: 6.1, energyDays: Array.from({ length: 20 }, (_, i) => ({ day: new Date(Date.now() - (19 - i) * 86400000).toLocaleDateString('en-CA'), kwh: Math.round((5 + 3 * Math.sin(i)) * 10) / 10 })), temperature: 26.1, targetTemperature: 23.5, mode: 'cool', availableModes: ['cool', 'dry', 'wind', 'auto'] } }),
-    d({ id: 'smartthings_tv_plug', provider: 'smartthings', providerId: 'plug1', name: 'TV plug', type: 'plug', suggestedRoom: 'Living room', capabilities: ['onoff'], state: { on: true, powerW: 86, energyEstimated: true, energyDays: Array.from({ length: 12 }, (_, i) => ({ day: new Date(Date.now() - (11 - i) * 86400000).toLocaleDateString('en-CA'), kwh: Math.round((0.6 + 0.3 * Math.cos(i)) * 100) / 100 })) } }),
+    d({ id: 'smartthings_ac', provider: 'smartthings', providerId: 'ac1', name: 'AC Samsung', type: 'thermostat', suggestedRoom: 'Bedroom', capabilities: ['onoff', 'mode', 'thermostat'], state: { on: true, powerW: 1180, energyTotalKwh: 412.6, todayKwh: 6.1, energyHours: demoHours(0.9), energyDays: Array.from({ length: 20 }, (_, i) => ({ day: new Date(Date.now() - (19 - i) * 86400000).toLocaleDateString('en-CA'), kwh: Math.round((5 + 3 * Math.sin(i)) * 10) / 10 })), temperature: 26.1, targetTemperature: 23.5, mode: 'cool', availableModes: ['cool', 'dry', 'wind', 'auto'] } }),
+    d({ id: 'smartthings_tv_plug', provider: 'smartthings', providerId: 'plug1', name: 'TV plug', type: 'plug', suggestedRoom: 'Living room', capabilities: ['onoff'], state: { on: true, powerW: 86, energyEstimated: true, energyHours: demoHours(0.09), energyDays: Array.from({ length: 12 }, (_, i) => ({ day: new Date(Date.now() - (11 - i) * 86400000).toLocaleDateString('en-CA'), kwh: Math.round((0.6 + 0.3 * Math.cos(i)) * 100) / 100 })) } }),
     d({ id: 'imou_entrada', provider: 'imou', providerId: 'CAM1', name: 'Entrada', type: 'camera', model: 'IPC-A22EP', capabilities: ['onoff', 'snapshot', 'live'], prefs: { room: 'Entrance' }, state: { on: true, imageUrl: '/car/front.webp' } }),
     d({ id: 'solis_1', provider: 'solis', providerId: '1000000000001', name: 'Demo Solar', type: 'solar', model: '8.8 kWp', suggestedRoom: 'Roof', capabilities: [], state: {
       statusLabel: 'Online', solarStatus: 'ok', powerKw: 4.25, capacityKwp: 8.8, todayKwh: 18.6, monthKwh: 212.4, yearKwh: 9800, totalKwh: 21300,
@@ -55,12 +76,7 @@ function seed(): Device[] {
       environment: { co2Kg: 21236, coalKg: 8520, trees: 11.8 },
       plant: { place: 'Demo City', tiltDeg: 30, azimuthDeg: 0, inverterKw: 5, since: '2023-11-30', days: 865, alarms: 0 },
       reportedAt: new Date(Date.now() - 5 * 60000).toISOString(),
-      curve: Array.from({ length: 96 }, (_, i) => {
-        const m = i * 15;
-        const sun = m < 330 || m > 1080 ? 0 : Math.round(Math.max(0, 5.4 * Math.sin((Math.PI * (m - 330)) / 750) * (0.85 + 0.15 * Math.cos(i * 1.7))) * 100) / 100;
-        const home = Math.round((0.5 + (m > 900 && m < 1290 ? 2.6 : 0) + (m > 720 && m < 840 ? 1.8 : 0) + 0.3 * Math.sin(i)) * 100) / 100;
-        return { t: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, kw: sun, homeKw: home, gridKw: Math.round((sun - home) * 100) / 100 };
-      }),
+      curve: demoCurve(0),
       days: Array.from({ length: 30 }, (_, i) => {
         const made = Math.round((22 + 9 * Math.sin(i * 0.9) + (i % 5) * 1.3) * 10) / 10;
         const used = Math.round((30 + 8 * Math.cos(i * 0.7)) * 10) / 10;
@@ -186,6 +202,13 @@ export function createDemoBackend(): Backend {
     saveLayout: async (next) => {
       layout = next;
       layoutSubs.forEach((cb) => cb(layout));
+    },
+    energyDay: async (date): Promise<EnergyDay> => {
+      await wait(300);
+      const station = devices.find((x) => x.type === 'solar');
+      const k = Math.round((Date.parse(date) - Date.parse(ymd(Date.now()))) / 86400000);
+      const row = station?.state.days?.find((x) => x.day === date);
+      return { date, today: ymd(Date.now()), stations: station && k > -60 ? [{ deviceId: station.id, curve: k === 0 ? station.state.curve ?? [] : demoCurve(k), balance: k === 0 ? station.state.periods?.day ?? null : row ?? null }] : [] };
     },
     sync: async (provider) => {
       await wait(700);

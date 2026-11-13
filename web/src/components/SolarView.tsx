@@ -135,7 +135,7 @@ function Legend({ items }: { items: readonly { label: string; cls: string }[] })
   return <div className="legend">{items.map((i) => <span key={i.label}><i className={i.cls} />{i.label}</span>)}</div>;
 }
 
-function PowerToday({ points }: { points: NonNullable<DeviceState['curve']> }) {
+export function PowerToday({ points }: { points: NonNullable<DeviceState['curve']> }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const height = 220;

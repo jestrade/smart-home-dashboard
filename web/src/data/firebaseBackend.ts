@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import type { Backend, SyncResult } from './backend';
-import type { AccessStatus, ActivityEvent, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
+import type { AccessStatus, ActivityEvent, Device, EnergyDay, HomeLayout, IntegrationStatus, ProviderId } from '../types';
 
 const REGION = 'us-central1';
 
@@ -91,6 +91,7 @@ export function createFirebaseBackend(): Backend {
     saveLayout: async (layout) => {
       await setDoc(doc(db, 'layout', 'home'), { rooms: layout.rooms, order: layout.order, widgets: layout.widgets ?? {}, floorplan: layout.floorplan ?? {}, sections: layout.sections ?? [], updatedAt: serverTimestamp() });
     },
+    energyDay: (date) => call<EnergyDay>('getEnergyDay', { date }),
     sync: async (provider) => (await call<{ results: SyncResult[] }>('syncDevices', { provider })).results,
 
     saveIntegration: async (provider, config) => {
