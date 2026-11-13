@@ -611,3 +611,22 @@ i.s-grid, .split-bar .s-grid { background: var(--s-grid); }
 .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .chip-count { font-size: 11px; font-variant-numeric: tabular-nums; opacity: .7; }
+
+/* ---------- floor plan: energy right now ---------- */
+.plan-wrap { position: relative; min-width: 0; }
+.plan-energy { position: absolute; top: 12px; left: 12px; display: grid; gap: 14px; padding: 12px 14px; border-radius: 12px; pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 82%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); max-width: 46%; }
+.plan-energy > div { display: grid; gap: 2px; justify-items: start; padding-left: 10px; border-left: 2px dotted var(--muted); }
+.plan-energy b { font-size: 22px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.plan-energy b small { font-size: 13px; font-weight: 500; color: var(--muted); }
+.plan-energy .fine { font-size: 11px; }
+.plan-energy .badge { margin-top: 2px; }
+/* Phones: a strip above the plan instead of covering it. */
+@media (max-width: 720px) {
+  .plan-energy { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: none; margin-bottom: 8px; background: var(--surface-2); backdrop-filter: none; }
+  .plan-wrap { display: flex; flex-direction: column-reverse; }
+  .plan-energy > div { padding-left: 8px; }
+  .plan-energy b { font-size: 18px; }
+  .plan-energy .grid-day { display: none; }
+}

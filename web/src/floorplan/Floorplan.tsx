@@ -24,6 +24,41 @@ function loadFilter(): string[] {
   }
 }
 
+const kw = (v?: number) => (v == null ? '—' : v.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+const kwh = (v?: number) => (v == null ? null : `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} kWh`);
+
+/** Solar generation, home load and grid power right now, shown at the side of the 3D plan. */
+function EnergyNow({ station }: { station: Device }) {
+  const s = station.state;
+  const grid = s.flow?.gridKw; // + selling to the grid, − buying from it
+  const day = s.periods?.day ?? {};
+  const dir = grid == null || Math.abs(grid) < 0.01 ? 'idle' : grid > 0 ? 'export' : 'import';
+  return (
+    <div className="plan-energy" aria-label="Energy right now">
+      <div>
+        <span className="label">PV</span>
+        <b>{kw(s.powerKw)}<small> kW</small></b>
+        {kwh(day.producedKwh ?? s.todayKwh) && <span className="fine">Today {kwh(day.producedKwh ?? s.todayKwh)}</span>}
+      </div>
+      <div>
+        <span className="label">Load</span>
+        <b>{kw(s.flow?.homeLoadKw)}<small> kW</small></b>
+        {kwh(day.consumedKwh) && <span className="fine">Today {kwh(day.consumedKwh)}</span>}
+      </div>
+      <div>
+        <span className="label">Grid</span>
+        <b>{kw(grid == null ? undefined : Math.abs(grid))}<small> kW</small></b>
+        <span className={`badge ${dir === 'import' ? 'info' : dir === 'export' ? 'ok' : 'muted'}`}>
+          {dir === 'import' ? 'Importing' : dir === 'export' ? 'Exporting' : 'Idle'}
+        </span>
+        {(day.importKwh != null || day.exportKwh != null) && (
+          <span className="fine grid-day">Today ↓ {kwh(day.importKwh) ?? '—'} · ↑ {kwh(day.exportKwh) ?? '—'}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Floorplan({ devices, layout, onLayout, run, pending, onPrefs }: {
   devices: Device[]; layout: HomeLayout; onLayout: (l: HomeLayout) => void;
   run: Run; pending: Set<string>; onPrefs: (id: string, prefs: DevicePrefs) => void;
@@ -34,6 +69,7 @@ export function Floorplan({ devices, layout, onLayout, run, pending, onPrefs }: 
   const bodyId = useId();
 
   const live = useMemo(() => devices.filter((d) => !d.prefs?.hidden && !d.stale), [devices]);
+  const station = live.find((d) => d.type === 'solar');
   const rooms = useMemo(() => [...new Set(live.map(roomOf))].filter((r) => r !== 'Unassigned').sort(), [live]);
   const saved = layout.floorplan ?? {};
   const map = useMemo(() => zoneMap(rooms, saved.zones), [rooms, saved.zones]);
@@ -97,9 +133,12 @@ export function Floorplan({ devices, layout, onLayout, run, pending, onPrefs }: 
               ))}
             </div>
           )}
-          <Suspense fallback={<div className="plan-stage loading"><span className="fine">Loading the 3D plan…</span></div>}>
-            <FloorplanScene pins={pins} labels={labels} selected={selected} editing={editing} onSelect={setSelected} onMove={movePin} />
-          </Suspense>
+          <div className="plan-wrap">
+            <Suspense fallback={<div className="plan-stage loading"><span className="fine">Loading the 3D plan…</span></div>}>
+              <FloorplanScene pins={pins} labels={labels} selected={selected} editing={editing} onSelect={setSelected} onMove={movePin} />
+            </Suspense>
+            {station && !editing && <EnergyNow station={station} />}
+          </div>
 
           {editing ? (
             <div className="plan-edit">
