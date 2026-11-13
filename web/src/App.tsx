@@ -4,6 +4,7 @@ import { Gate } from './components/Gate';
 import { HomeView } from './components/HomeView';
 import { VehicleView } from './components/VehicleView';
 import { ChargerView } from './components/ChargerView';
+import { EnergyView } from './components/EnergyView';
 import { SolarView } from './components/SolarView';
 import { IntegrationsView } from './components/IntegrationsView';
 import { ActivityView } from './components/ActivityView';
@@ -15,9 +16,10 @@ import type {
   AccessStatus, ActivityEvent, AppUser, Device, DevicePrefs, HomeLayout, IntegrationStatus, ProviderId,
 } from './types';
 
-type Tab = 'home' | 'vehicle' | 'charger' | 'solar' | 'integrations' | 'activity';
+type Tab = 'home' | 'energy' | 'vehicle' | 'charger' | 'solar' | 'integrations' | 'activity';
 const TABS: { id: Tab; label: string; short?: string; icon: string }[] = [
   { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'energy', label: 'Energy', icon: 'bolt' },
   { id: 'vehicle', label: 'Car', icon: 'vehicle' },
   { id: 'charger', label: 'Charger', icon: 'charger' },
   { id: 'solar', label: 'Solar', icon: 'sun' },
@@ -182,6 +184,7 @@ export default function App() {
 
       <main className="content">
         {tab === 'home' && <HomeView devices={devices} run={run} pending={pending} onPrefs={onPrefs} onConnect={() => go('integrations')} layout={layout} onLayout={onLayout} />}
+        {tab === 'energy' && <EnergyView devices={devices} onConnect={() => go('integrations')} />}
         {tab === 'vehicle' && <VehicleView vehicles={vehicles} onConnect={() => go('integrations')} />}
         {tab === 'charger' && <ChargerView chargers={chargers} onConnect={() => go('integrations')} />}
         {tab === 'solar' && <SolarView stations={stations} onConnect={() => go('integrations')} />}

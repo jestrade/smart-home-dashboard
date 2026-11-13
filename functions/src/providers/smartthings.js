@@ -75,6 +75,12 @@ function normalize(d, status, rooms) {
   if (caps.has('contactSensor')) state.open = v('contactSensor', 'contact') === 'open';
   if (caps.has('motionSensor')) state.motion = v('motionSensor', 'motion') === 'active';
   if (caps.has('powerMeter')) state.powerW = v('powerMeter', 'power');
+  // Samsung appliances (ACs, washers, fridges, TVs) report a running energy counter in Wh.
+  const report = caps.has('powerConsumptionReport') ? v('powerConsumptionReport', 'powerConsumption') : null;
+  if (report && typeof report === 'object') {
+    if (state.powerW == null && Number.isFinite(Number(report.power))) state.powerW = Math.round(Number(report.power) * 10) / 10;
+    if (Number.isFinite(Number(report.energy))) state.energyTotalKwh = Math.round(Number(report.energy)) / 1000;
+  }
 
   // Thermostats and air conditioners
   let setpointCap = null;

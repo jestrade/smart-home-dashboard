@@ -36,6 +36,7 @@ const PATHS: Record<string, string> = {
   edit: 'M4 20h4L19 9l-4-4L4 16v4Z',
   close: 'M6 6l12 12M18 6 6 18',
   plus: 'M12 5v14M5 12h14',
+  bolt: 'M13 2 4 14h7l-1 8 9-12h-7l1-8Z',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
   solar: 'M4 5h16l2 12H2L4 5ZM12 5v12M3 11h18M12 17v3M8 20h8',
   hub: 'M4 14h16v5H4zM8 16.5h.01M12 16.5h.01M12 14v-4M8.5 6.5a5 5 0 0 1 7 0M10.3 8.8a2.4 2.4 0 0 1 3.4 0',

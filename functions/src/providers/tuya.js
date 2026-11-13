@@ -104,6 +104,14 @@ function normalize(d) {
     state.targetTemperature = s.temp_set / meta.tempScale;
     capabilities.push('thermostat');
   }
+  // Energy-monitoring plugs: power in 0.1 W, voltage in 0.1 V, current in mA.
+  if ('cur_power' in s) {
+    meta.metered = true;
+    state.powerW = Math.round(Number(s.cur_power) || 0) / 10;
+    if ('cur_voltage' in s) state.voltageV = Math.round(Number(s.cur_voltage) || 0) / 10;
+    if ('cur_current' in s) state.currentA = Math.round(Number(s.cur_current) || 0) / 1000;
+  }
+
   if ('control' in s) {
     capabilities.push('cover');
     if ('percent_control' in s) state.position = s.percent_control;
@@ -141,7 +149,28 @@ export default {
         lastRowKey = r.has_more ? r.last_row_key : undefined;
       } while (lastRowKey);
     }
-    return devices.map(normalize);
+    const out = devices.map(normalize);
+    // Daily energy (kWh) for the last 30 days, for plugs that measure it. Not every product keeps
+    // these statistics in the Tuya cloud; those just show the power right now.
+    const ymd = (t) => new Date(t - 5 * 3600_000).toISOString().slice(0, 10).replace(/-/g, ''); // local day (UTC-5)
+    for (const d of out.filter((x) => x.meta.metered)) {
+      try {
+        const r = await call(cfg, 'GET', `/v1.0/devices/${d.providerId}/statistics/days`, {
+          query: { code: 'add_ele', start_day: ymd(Date.now() - 29 * 86400_000), end_day: ymd(Date.now()) },
+        });
+        const days = Object.entries(r?.days ?? {})
+          .map(([k, v]) => ({ day: `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}`, kwh: Math.round(Number(v) * 1000) / 1000 }))
+          .filter((x) => Number.isFinite(x.kwh))
+          .sort((a, b) => a.day.localeCompare(b.day));
+        if (days.length) {
+          d.state.energyDays = days;
+          d.state.todayKwh = days.find((x) => x.day === `${ymd(Date.now()).slice(0, 4)}-${ymd(Date.now()).slice(4, 6)}-${ymd(Date.now()).slice(6)}`)?.kwh ?? 0;
+        }
+      } catch (e) {
+        d.meta.statsError = String(e.message).slice(0, 120);
+      }
+    }
+    return out;
   },
 
   async command(cfg, device, action, value) {

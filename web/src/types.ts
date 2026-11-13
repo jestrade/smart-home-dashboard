@@ -91,6 +91,14 @@ export interface DeviceState {
   lastSync?: string;
   sessions?: { start: number; end?: number; energyKwh?: number; durationS?: number; cost?: number; rangeKm?: number }[];
   last30?: { sessions: number; energyKwh: number; cost: number; durationS: number };
+  // energy metering (plugs, appliances)
+  voltageV?: number;
+  currentA?: number;
+  /** Running energy counter reported by the device. */
+  energyTotalKwh?: number;
+  /** Energy per local day, worked out at each sync; estimated from power when the device has no counter. */
+  energyDays?: { day: string; kwh: number }[];
+  energyEstimated?: boolean;
   // solar
   solarStatus?: 'ok' | 'offline' | 'alarm';
   powerKw?: number;

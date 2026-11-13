@@ -60,6 +60,48 @@ export async function writeStatus(id, cfg, extra = {}) {
   );
 }
 
+// ---------- energy per day ----------
+
+const HOME_TZ = process.env.HOME_TZ || 'UTC';
+const localDay = (t = Date.now()) => new Intl.DateTimeFormat('en-CA', { timeZone: HOME_TZ }).format(new Date(t)); // yyyy-mm-dd
+
+/**
+ * Daily energy for devices that measure it. Devices with a running counter (energyTotalKwh) are
+ * read at the first sync of each day; devices that only report power now (powerW) get an
+ * estimate that adds up power × time between syncs. Keeps the last 31 days on the device itself.
+ */
+function trackEnergy(d, prev) {
+  // The car's charging power is the charger's, which has its own session records.
+  if (d.type === 'vehicle' || d.type === 'charger' || d.type === 'solar') return d;
+  const s = d.state ?? {};
+  const now = Date.now();
+  const log = { starts: { ...(prev?.energyLog?.starts ?? {}) }, estimateKwh: prev?.energyLog?.estimateKwh ?? 0, lastAt: prev?.energyLog?.lastAt, lastW: prev?.energyLog?.lastW };
+  let counter = Number.isFinite(s.energyTotalKwh) ? s.energyTotalKwh : null;
+  let estimated = false;
+  if (counter == null && Number.isFinite(s.powerW)) {
+    // Trapezoid between two readings; gaps over an hour (sync stopped, device offline) are skipped.
+    const hours = log.lastAt ? (now - log.lastAt) / 3600_000 : 0;
+    if (hours > 0 && hours <= 1 && Number.isFinite(log.lastW)) log.estimateKwh += (((log.lastW + s.powerW) / 2) * hours) / 1000;
+    log.estimateKwh = Math.round(log.estimateKwh * 10000) / 10000;
+    log.lastAt = now;
+    log.lastW = s.powerW;
+    counter = log.estimateKwh;
+    estimated = true;
+  }
+  if (counter == null) return d;
+  const today = localDay(now);
+  if (log.starts[today] == null) log.starts[today] = counter;
+  const days = Object.keys(log.starts).sort().slice(-31);
+  log.starts = Object.fromEntries(days.map((k) => [k, log.starts[k]]));
+  const round = (x) => Math.max(0, Math.round(x * 1000) / 1000);
+  const energyDays = days.map((day, i) => ({ day, kwh: round((i + 1 < days.length ? log.starts[days[i + 1]] : counter) - log.starts[day]) }));
+  return {
+    ...d,
+    state: { ...s, todayKwh: energyDays.at(-1).kwh, energyDays, ...(estimated ? { energyEstimated: true } : {}) },
+    energyLog: log,
+  };
+}
+
 export async function syncProvider(id) {
   const p = getProvider(id);
   const cfg = await loadConfig(id);
@@ -68,8 +110,9 @@ export async function syncProvider(id) {
     return { provider: id, skipped: true };
   }
   try {
-    const devices = await p.listDevices(cfg, ctxFor(id));
     const existing = await db.collection('devices').where('provider', '==', id).get();
+    const previous = new Map(existing.docs.map((doc) => [doc.id, doc.data()]));
+    const devices = (await p.listDevices(cfg, ctxFor(id))).map((d) => trackEnergy(d, previous.get(deviceDocId(id, d.providerId))));
     const batch = db.batch();
     const seen = new Set();
     for (const d of devices) {
