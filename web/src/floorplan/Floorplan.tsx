@@ -1,16 +1,28 @@
 // Home tab card: the 3D floor plan, the device picked on it, and (in edit mode) room placement.
-import { lazy, Suspense, useId, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useMemo, useState } from 'react';
 import { CollapseButton, useCollapsed } from '../components/Collapse';
 import { DeviceCard, type Run } from '../components/DeviceCard';
 import { Icon } from '../components/Icon';
 import { displayName, roomOf, type Device, type DevicePrefs, type HomeLayout } from '../types';
 import { placePins, zoneMap } from './mapping';
 import { ZONES } from './plan';
+import { CATEGORIES, categoryOf } from './categories';
 
 const FloorplanScene = lazy(() => import('./FloorplanScene'));
 
 // The car, charger and solar plant have their own tabs; on the plan they are pins with a summary.
 const OWN_TAB = new Set(['vehicle', 'charger', 'solar']);
+
+// The chosen categories are a per-viewer convenience, remembered in this browser only.
+const FILTER_KEY = 'floorplan:filter';
+function loadFilter(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(FILTER_KEY) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 export function Floorplan({ devices, layout, onLayout, run, pending, onPrefs }: {
   devices: Device[]; layout: HomeLayout; onLayout: (l: HomeLayout) => void;
@@ -25,14 +37,32 @@ export function Floorplan({ devices, layout, onLayout, run, pending, onPrefs }: 
   const rooms = useMemo(() => [...new Set(live.map(roomOf))].filter((r) => r !== 'Unassigned').sort(), [live]);
   const saved = layout.floorplan ?? {};
   const map = useMemo(() => zoneMap(rooms, saved.zones), [rooms, saved.zones]);
-  const pins = useMemo(() => placePins(live, map, saved.pins), [live, map, saved.pins]);
+  const allPins = useMemo(() => placePins(live, map, saved.pins), [live, map, saved.pins]);
+
+  // Category filter: empty means everything.
+  const [filter, setFilter] = useState<string[]>(loadFilter);
+  useEffect(() => {
+    try { localStorage.setItem(FILTER_KEY, JSON.stringify(filter)); } catch { /* private mode */ }
+  }, [filter]);
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const p of allPins) c[categoryOf(p.device)] = (c[categoryOf(p.device)] ?? 0) + 1;
+    return c;
+  }, [allPins]);
+  const present = CATEGORIES.filter((c) => counts[c.id]);
+  const active = filter.filter((id) => counts[id]);
+  const pins = useMemo(() => (active.length ? allPins.filter((p) => active.includes(categoryOf(p.device))) : allPins), [allPins, active.join()]);
+  const toggleCategory = (id: string) => setFilter(active.includes(id) ? active.filter((x) => x !== id) : [...active, id]);
+  useEffect(() => {
+    if (selected && !pins.some((p) => p.device.id === selected)) setSelected(null);
+  }, [pins, selected]);
 
   const labels = useMemo(() => {
     const out: Record<string, string[]> = {};
     for (const [room, zid] of Object.entries(map)) if (zid) (out[zid] ??= []).push(room);
     return out;
   }, [map]);
-  const offPlan = live.filter((d) => !pins.some((p) => p.device.id === d.id));
+  const offPlan = live.filter((d) => !allPins.some((p) => p.device.id === d.id));
 
   const save = (floorplan: NonNullable<HomeLayout['floorplan']>) => onLayout({ ...layout, floorplan: { ...saved, ...floorplan } });
   const setZone = (room: string, zid: string) => save({ zones: { ...saved.zones, [room]: zid } });
@@ -55,6 +85,18 @@ export function Floorplan({ devices, layout, onLayout, run, pending, onPrefs }: 
       </div>
       {!collapsed && (
         <div id={bodyId} className="floorplan-body">
+          {present.length > 1 && (
+            <div className="plan-filter" role="group" aria-label="Show devices by category">
+              <button type="button" className={`chip ${active.length === 0 ? 'on' : ''}`} aria-pressed={active.length === 0} onClick={() => setFilter([])}>
+                All <span className="chip-count">{allPins.length}</span>
+              </button>
+              {present.map((c) => (
+                <button key={c.id} type="button" className={`chip ${active.includes(c.id) ? 'on' : ''}`} aria-pressed={active.includes(c.id)} onClick={() => toggleCategory(c.id)}>
+                  <Icon name={c.icon as 'light'} size={14} /> {c.label} <span className="chip-count">{counts[c.id]}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <Suspense fallback={<div className="plan-stage loading"><span className="fine">Loading the 3D plan…</span></div>}>
             <FloorplanScene pins={pins} labels={labels} selected={selected} editing={editing} onSelect={setSelected} onMove={movePin} />
           </Suspense>
