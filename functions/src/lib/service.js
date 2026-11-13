@@ -107,7 +107,8 @@ function trackEnergy(d, prev) {
   return {
     ...d,
     state: { ...s, todayKwh: energyDays.at(-1).kwh, energyDays, energyHours, ...(estimated ? { energyEstimated: true } : {}) },
-    energyLog: log,
+    // Firestore rejects undefined values (lastAt/lastW stay unset for devices with their own counter).
+    energyLog: Object.fromEntries(Object.entries(log).filter(([, v]) => v !== undefined)),
   };
 }
 
