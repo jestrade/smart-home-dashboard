@@ -37,6 +37,14 @@ service cloud.firestore {
         && (!('sections' in request.resource.data) || (request.resource.data.sections is list && request.resource.data.sections.size() <= 10));
     }
 
+    // Security section: blocked IPs, suspicious requests, App Check counts. Written by functions only.
+    match /securityEvents/{id} {
+      allow read: if isMember();
+    }
+    match /security/{doc} {
+      allow read: if isMember();
+    }
+
     match /integrationStatus/{provider} {
       allow read: if isMember();
     }

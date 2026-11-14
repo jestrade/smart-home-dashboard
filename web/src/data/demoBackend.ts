@@ -1,5 +1,5 @@
 import type { Backend } from './backend';
-import type { ActivityEvent, AppUser, EnergyDay, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
+import type { ActivityEvent, AppUser, EnergyDay, SecurityInfo, Device, HomeLayout, IntegrationStatus, ProviderId } from '../types';
 
 // In-memory backend with sample devices so the UI can be explored without any accounts.
 
@@ -107,6 +107,7 @@ function seed(): Device[] {
 
 export function createDemoBackend(): Backend {
   let devices = seed();
+  let demoBlocked = ['185.220.101.4', '45.155.205.9'];
   let events: ActivityEvent[] = [];
   const status: Partial<Record<ProviderId, IntegrationStatus>> = {
     tuya: { provider: 'tuya', configured: true, connected: true, lastSyncAt: now(), deviceCount: 6, fieldsSet: ['clientId', 'clientSecret'] },
@@ -202,6 +203,24 @@ export function createDemoBackend(): Backend {
     saveLayout: async (next) => {
       layout = next;
       layoutSubs.forEach((cb) => cb(layout));
+    },
+    security: async (): Promise<SecurityInfo> => {
+      await wait(200);
+      const t = Date.now();
+      return {
+        blocked: demoBlocked.map((ip, i) => ({ ip, until: t + (20 - i * 6) * 3600000, reason: i ? 'rate-limit · bridge' : 'probe · bridge', at: t - (4 + i) * 3600000 })),
+        events: [
+          { id: 'e1', ip: '185.220.101.4', kind: 'probe', endpoint: 'bridge', path: '/wp-login.php', userAgent: 'Mozilla/5.0 zgrab/0.x', at: t - 4 * 3600000 },
+          { id: 'e2', ip: '185.220.101.4', kind: 'blocked', endpoint: 'probe · bridge', at: t - 4 * 3600000 },
+          { id: 'e3', ip: '45.155.205.9', kind: 'rate-limit', endpoint: 'bridge', path: '/motion/commands', userAgent: 'python-requests/2.31', at: t - 5 * 3600000 },
+          { id: 'e4', ip: '102.89.33.18', kind: 'denied', endpoint: 'syncDevices', userAgent: 'curl/8.4', at: t - 26 * 3600000 },
+        ].filter((e) => demoBlocked.includes(e.ip) || e.kind === 'denied'),
+        appCheck: { verified: 0, missing: 0 },
+        appCheckOn: false,
+      };
+    },
+    unblockIp: async (ip) => {
+      demoBlocked = demoBlocked.filter((x) => x !== ip);
     },
     energyDay: async (date): Promise<EnergyDay> => {
       await wait(300);

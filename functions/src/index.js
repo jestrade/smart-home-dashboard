@@ -20,6 +20,7 @@ import { providers } from './providers/index.js';
 import { confirm, staticResponse, verifySignature } from './lib/smartapp.js';
 import { authenticateBridge, hashToken, newBridgeToken, storeReport, storeResult, takeCommands } from './lib/bridge.js';
 import { sanitize as sanitizeMotion } from './providers/motion.js';
+import { cleanupSecurity, deniedCall, guardCall, guardRequest, strike, unblock } from './lib/guard.js';
 
 // Prefer IPv4 for outbound calls: Tuya rejects Cloud Run's IPv6 addresses (error 1114).
 dns.setDefaultResultOrder('ipv4first');
@@ -28,6 +29,22 @@ const REGION = 'us-central1';
 setGlobalOptions({ region: REGION, maxInstances: 5 });
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+// App Check: off until a reCAPTCHA key exists; then "monitor" first (calls are counted, not
+// refused), and ENFORCE_APP_CHECK=true in functions/.env once every device passes.
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === 'true';
+
+/** A callable with the per-IP guard in front. Refusals of non-members count as strikes. */
+const callable = (name, opts, handler) =>
+  onCall({ ...opts, enforceAppCheck: ENFORCE_APP_CHECK }, async (req) => {
+    await guardCall(req, name);
+    try {
+      return await handler(req);
+    } catch (e) {
+      if (e instanceof HttpsError && (e.code === 'permission-denied' || e.code === 'unauthenticated')) await deniedCall(req, name);
+      throw e;
+    }
+  });
 
 function defaultRedirectUri() {
   const project = process.env.GCLOUD_PROJECT;
@@ -39,13 +56,13 @@ function defaultRedirectUri() {
 
 // ---------- access ----------
 
-export const accessStatus = onCall(async (req) => ({ status: await accessStatusFor(req.auth) }));
+export const accessStatus = callable('accessStatus', {}, async (req) => ({ status: await accessStatusFor(req.auth) }));
 
-export const claim = onCall(async (req) => ({ owner: await claimDashboard(req.auth) }));
+export const claim = callable('claim', {}, async (req) => ({ owner: await claimDashboard(req.auth) }));
 
 // ---------- integrations ----------
 
-export const saveIntegration = onCall(async (req) => {
+export const saveIntegration = callable('saveIntegration', {}, async (req) => {
   await assertMember(req.auth);
   const { provider, config } = req.data ?? {};
   const p = getProvider(provider);
@@ -69,7 +86,7 @@ export const saveIntegration = onCall(async (req) => {
   return { provider, saved: Object.keys(patch) };
 });
 
-export const disconnectIntegration = onCall(async (req) => {
+export const disconnectIntegration = callable('disconnectIntegration', {}, async (req) => {
   await assertMember(req.auth);
   const { provider } = req.data ?? {};
   getProvider(provider);
@@ -82,7 +99,7 @@ export const disconnectIntegration = onCall(async (req) => {
   return { provider, removedDevices: devices.size };
 });
 
-export const getAuthUrl = onCall(async (req) => {
+export const getAuthUrl = callable('getAuthUrl', {}, async (req) => {
   const email = await assertMember(req.auth);
   const { provider, appUrl } = req.data ?? {};
   const p = getProvider(provider);
@@ -112,15 +129,18 @@ export const getAuthUrl = onCall(async (req) => {
   return { url: p.oauth.authorizeUrl(cfg, { redirectUri, state, challenge }), redirectUri };
 });
 
-export const oauthCallback = onRequest(async (req, res) => {
+export const oauthCallback = onRequest({ timeoutSeconds: 60, maxInstances: 2 }, async (req, res) => {
+  if (!(await guardRequest(req, res, 'oauthCallback'))) return;
   const { code, state, error, error_description: errorDescription } = req.query;
-  if (typeof state !== 'string' || !state) {
+  if (typeof state !== 'string' || !state || state.length > 128 || state.includes('/')) {
+    await strike(req.clientIp, 'bad-request', { endpoint: 'oauthCallback', path: req.originalUrl });
     res.status(400).send('Missing state.');
     return;
   }
   const stateRef = db.doc(`oauthStates/${state}`);
   const snap = await stateRef.get();
   if (!snap.exists) {
+    await strike(req.clientIp, 'bad-request', { endpoint: 'oauthCallback', path: req.originalUrl });
     res.status(400).send('Unknown or already used sign-in link. Start again from the dashboard.');
     return;
   }
@@ -164,13 +184,13 @@ export const oauthCallback = onRequest(async (req, res) => {
 
 // ---------- devices ----------
 
-export const syncDevices = onCall({ timeoutSeconds: 120 }, async (req) => {
+export const syncDevices = callable('syncDevices', { timeoutSeconds: 120 }, async (req) => {
   await assertMember(req.auth);
   const provider = req.data?.provider;
   return { results: provider ? [await syncProvider(provider)] : await syncAll() };
 });
 
-export const getEnergyDay = onCall({ timeoutSeconds: 30, maxInstances: 2 }, async (req) => {
+export const getEnergyDay = callable('getEnergyDay', { timeoutSeconds: 30, maxInstances: 2 }, async (req) => {
   await assertMember(req.auth);
   try {
     return await energyDay(req.data?.date);
@@ -181,7 +201,7 @@ export const getEnergyDay = onCall({ timeoutSeconds: 30, maxInstances: 2 }, asyn
   }
 });
 
-export const sendCommand = onCall({ timeoutSeconds: 60 }, async (req) => {
+export const sendCommand = callable('sendCommand', { timeoutSeconds: 60 }, async (req) => {
   const email = await assertMember(req.auth);
   const { deviceId, action, value } = req.data ?? {};
   if (typeof deviceId !== 'string' || !deviceId) throw new HttpsError('invalid-argument', 'deviceId is required.');
@@ -205,7 +225,7 @@ export const sendCommand = onCall({ timeoutSeconds: 60 }, async (req) => {
 const BRIDGE_SANITIZERS = { motion: sanitizeMotion };
 
 /** Generates a new bridge token (shown once). Replaces any previous token. */
-export const createBridgeToken = onCall(async (req) => {
+export const createBridgeToken = callable('createBridgeToken', {}, async (req) => {
   const email = await assertMember(req.auth);
   const { provider } = req.data ?? {};
   const p = getProvider(provider);
@@ -221,12 +241,15 @@ export const createBridgeToken = onCall(async (req) => {
 
 /** The bridge's API: POST /<provider>/report, GET /<provider>/commands, POST /<provider>/result. */
 export const bridge = onRequest({ timeoutSeconds: 30, maxInstances: 2 }, async (req, res) => {
+  if (!(await guardRequest(req, res, 'bridge'))) return;
   const [, provider, route] = (req.path ?? '').split('/');
   if (!BRIDGE_SANITIZERS[provider] || !['report', 'commands', 'result'].includes(route)) {
+    await strike(req.clientIp, 'not-found', { endpoint: 'bridge', path: req.originalUrl, userAgent: req.headers['user-agent'] });
     res.status(404).json({ error: 'Not found' });
     return;
   }
   if (!(await authenticateBridge(req, provider))) {
+    await strike(req.clientIp, 'bad-token', { endpoint: 'bridge', path: req.originalUrl, userAgent: req.headers['user-agent'] });
     res.status(401).json({ error: 'Invalid bridge token' });
     return;
   }
@@ -250,8 +273,10 @@ export const bridge = onRequest({ timeoutSeconds: 30, maxInstances: 2 }, async (
 
 // ---------- SmartThings SmartApp webhook ----------
 
-export const smartthingsWebhook = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
+export const smartthingsWebhook = onRequest({ timeoutSeconds: 30, maxInstances: 2 }, async (req, res) => {
+  if (!(await guardRequest(req, res, 'smartthingsWebhook'))) return;
   if (req.method !== 'POST') {
+    await strike(req.clientIp, 'bad-request', { endpoint: 'smartthingsWebhook', path: req.originalUrl, userAgent: req.headers['user-agent'] });
     res.status(405).send('POST only');
     return;
   }
@@ -266,6 +291,7 @@ export const smartthingsWebhook = onRequest({ timeoutSeconds: 30 }, async (req, 
   }
   if (!(await verifySignature(req))) {
     logger.warn(`smartapp: rejected unsigned/invalid ${body.lifecycle} request`);
+    await strike(req.clientIp, 'bad-signature', { endpoint: 'smartthingsWebhook', userAgent: req.headers['user-agent'] });
     res.status(401).send('Invalid signature');
     return;
   }
@@ -313,5 +339,16 @@ export const scheduledSync = onSchedule({ schedule: 'every 15 minutes', timeoutS
   // Clean up abandoned OAuth attempts.
   const stale = await db.collection('oauthStates').where('expiresAt', '<', Date.now()).get();
   await Promise.all(stale.docs.map((d) => d.ref.delete()));
+  await cleanupSecurity().catch((e) => logger.warn('security cleanup failed', e));
+});
+
+// ---------- security ----------
+
+export const unblockIp = callable('unblockIp', {}, async (req) => {
+  await assertMember(req.auth);
+  const ip = req.data?.ip;
+  if (typeof ip !== 'string' || !ip || ip.length > 64) throw new HttpsError('invalid-argument', 'ip is required.');
+  await unblock(ip);
+  return { ok: true };
 });
 

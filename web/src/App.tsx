@@ -8,6 +8,7 @@ import { EnergyView } from './components/EnergyView';
 import { SolarView } from './components/SolarView';
 import { IntegrationsView } from './components/IntegrationsView';
 import { ActivityView } from './components/ActivityView';
+import { SecurityView } from './components/SecurityView';
 import { Icon } from './components/Icon';
 import { useStored } from './components/Collapse';
 import type { Run } from './components/DeviceCard';
@@ -189,7 +190,7 @@ export default function App() {
         {tab === 'charger' && <ChargerView chargers={chargers} onConnect={() => go('integrations')} />}
         {tab === 'solar' && <SolarView stations={stations} onConnect={() => go('integrations')} />}
         {tab === 'integrations' && <IntegrationsView backend={backend} status={status} notify={notify} />}
-        {tab === 'activity' && <ActivityView events={events} />}
+        {tab === 'activity' && <div className="stack"><ActivityView events={events} /><SecurityView notify={notify} /></div>}
       </main>
 
       <div className="toasts" role="status" aria-live="polite">

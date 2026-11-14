@@ -218,3 +218,11 @@ export interface EnergyDay {
   today: string;
   stations: { deviceId: string; curve: NonNullable<DeviceState['curve']>; balance: EnergyBalance | null }[];
 }
+
+/** The Security section: blocked IPs, recent suspicious requests, App Check counts. */
+export interface SecurityInfo {
+  blocked: { ip: string; until: number; reason?: string; at?: number }[];
+  events: { id: string; ip: string; kind: string; path?: string | null; endpoint?: string | null; userAgent?: string | null; at: number }[];
+  appCheck: { verified: number; missing: number; updatedAt?: number } | null;
+  appCheckOn: boolean;
+}

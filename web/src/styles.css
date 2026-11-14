@@ -686,3 +686,11 @@ table.hour-table tfoot th { border-top: 1px solid var(--border); }
 table.hour-table .bar-cell { position: relative; min-width: 110px; }
 table.hour-table .bar-cell span { position: absolute; left: 0; top: 50%; height: 60%; transform: translateY(-50%); background: var(--s-home); opacity: .22; border-radius: 0 4px 4px 0; }
 table.hour-table .bar-cell b { position: relative; font-weight: 500; }
+
+/* ---------- activity: security ---------- */
+.card.security { display: grid; gap: 14px; padding: 20px 22px; }
+@media (max-width: 720px) { .card.security { padding: 16px; } }
+.card.security h2, .card.security h3 { margin: 0; }
+.security-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card.security code { font-size: 12px; }
+.card.security td.ua { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }

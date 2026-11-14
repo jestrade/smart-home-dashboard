@@ -1,5 +1,5 @@
 import type {
-  AccessStatus, Action, EnergyDay, ActivityEvent, AppUser, Device, DevicePrefs, HomeLayout, IntegrationStatus, ProviderId,
+  AccessStatus, Action, EnergyDay, SecurityInfo, ActivityEvent, AppUser, Device, DevicePrefs, HomeLayout, IntegrationStatus, ProviderId,
 } from '../types';
 
 export type Unsubscribe = () => void;
@@ -31,6 +31,9 @@ export interface Backend {
   sync(provider?: ProviderId): Promise<SyncResult[]>;
   /** The solar plant's power curve and balance for one day (yyyy-mm-dd). */
   energyDay(date: string): Promise<EnergyDay>;
+  /** Read once when the Security section opens (not live, to keep reads low). */
+  security(): Promise<SecurityInfo>;
+  unblockIp(ip: string): Promise<void>;
 
   saveIntegration(provider: ProviderId, config: Record<string, string>): Promise<void>;
   connectUrl(provider: ProviderId): Promise<{ url: string; redirectUri: string }>;

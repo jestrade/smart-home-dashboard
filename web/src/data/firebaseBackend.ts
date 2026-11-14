@@ -1,14 +1,15 @@
 import { initializeApp } from 'firebase/app';
+import { ReCaptchaV3Provider, initializeAppCheck } from 'firebase/app-check';
 import {
   GoogleAuthProvider, connectAuthEmulator, getAuth, onAuthStateChanged, signInWithPopup, signOut,
 } from 'firebase/auth';
 import {
   Timestamp, collection, connectFirestoreEmulator, doc, getFirestore, limit, onSnapshot, orderBy, query,
-  serverTimestamp, setDoc, updateDoc,
+  serverTimestamp, setDoc, updateDoc, getDoc, getDocs,
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import type { Backend, SyncResult } from './backend';
-import type { AccessStatus, ActivityEvent, Device, EnergyDay, HomeLayout, IntegrationStatus, ProviderId } from '../types';
+import type { AccessStatus, ActivityEvent, Device, EnergyDay, HomeLayout, SecurityInfo, IntegrationStatus, ProviderId } from '../types';
 
 const REGION = 'us-central1';
 
@@ -23,6 +24,10 @@ const toDate = (v: unknown) => (v instanceof Timestamp ? v.toDate() : null);
 
 export function createFirebaseBackend(): Backend {
   const app = initializeApp(firebaseConfig);
+  // App Check (reCAPTCHA v3): only once a site key is configured. The functions count verified
+  // calls first and only refuse unverified ones when enforcement is switched on.
+  const appCheckKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
+  if (appCheckKey) initializeAppCheck(app, { provider: new ReCaptchaV3Provider(appCheckKey), isTokenAutoRefreshEnabled: true });
   const auth = getAuth(app);
   const db = getFirestore(app);
   const fns = getFunctions(app, REGION);
@@ -90,6 +95,23 @@ export function createFirebaseBackend(): Backend {
       }),
     saveLayout: async (layout) => {
       await setDoc(doc(db, 'layout', 'home'), { rooms: layout.rooms, order: layout.order, widgets: layout.widgets ?? {}, floorplan: layout.floorplan ?? {}, sections: layout.sections ?? [], updatedAt: serverTimestamp() });
+    },
+    security: async (): Promise<SecurityInfo> => {
+      const [blocked, events, appCheck] = await Promise.all([
+        getDoc(doc(db, 'security', 'blocklist')),
+        getDocs(query(collection(db, 'securityEvents'), orderBy('at', 'desc'), limit(50))),
+        getDoc(doc(db, 'security', 'appCheck')),
+      ]);
+      const ips = Object.values((blocked.get('ips') ?? {}) as Record<string, SecurityInfo['blocked'][number]>);
+      return {
+        blocked: ips.filter((b) => b.until > Date.now()).sort((a, b) => b.until - a.until),
+        events: events.docs.map((d) => ({ ...(d.data() as SecurityInfo['events'][number]), id: d.id })),
+        appCheck: appCheck.exists() ? (appCheck.data() as SecurityInfo['appCheck']) : null,
+        appCheckOn: Boolean(appCheckKey),
+      };
+    },
+    unblockIp: async (ip) => {
+      await call('unblockIp', { ip });
     },
     energyDay: (date) => call<EnergyDay>('getEnergyDay', { date }),
     sync: async (provider) => (await call<{ results: SyncResult[] }>('syncDevices', { provider })).results,
