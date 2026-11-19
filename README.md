@@ -1,6 +1,6 @@
 # Smart Home Dashboard
 
-One dashboard for Tuya / Smart Life devices, your Volvo, Google Nest, and anything else via Home Assistant.
+One dashboard for Tuya / Smart Life devices, your Volvo, Tesla, BYD, Volkswagen or Hyundai, Google Nest, and anything else via Home Assistant.
 React + Vite frontend, Firebase Auth + Firestore + Cloud Functions backend.
 
 ```
@@ -30,7 +30,7 @@ To retake them, run the sample demo and then `node web/scripts/screenshots.mjs` 
 ## How it works
 
 ```
-Browser ──callable──▶ Cloud Functions ──▶ Tuya / Volvo / Google SDM / Home Assistant APIs
+Browser ──callable──▶ Cloud Functions ──▶ Tuya / Volvo / Tesla / BYD / Volkswagen / Hyundai / Google SDM / Home Assistant APIs
    ▲                       │
    └──── live snapshot ─── Firestore (devices, integrationStatus, events)
 ```
@@ -68,6 +68,10 @@ Open http://localhost:5173. Demo mode uses sample devices in memory.
 | --- | --- | --- |
 | Tuya / Smart Life | Cloud project at iot.tuya.com with your app account linked; Access ID + Secret | Pick the endpoint for your data center. Syncs immediately on save. |
 | Volvo | App at developer.volvocars.com: client ID, secret, VCC API key | Register the redirect URI shown in the card, then **Connect**. |
+| Tesla | App at developer.tesla.com (Fleet API): client ID + secret | Host your public key, register as a partner in each region, add the redirect URI shown in the card, then **Connect**. Read-only; sleeping cars are not woken. |
+| Hyundai | Pleos Vehicle Data API client ID + secret, and your VIN | Europe only (EU Data Act); needs Pleos approval. Syncs on save. |
+| Volkswagen | Gateway URL + API key | Unofficial / best-effort: VW has no public owner API, so status comes from a gateway you run or subscribe to. |
+| BYD | Gateway URL + API key | Unofficial / best-effort: BYD has no public owner API, so status comes from a gateway you run or subscribe to. |
 | Google Nest | Google Cloud OAuth client + Device Access project (US$5 one-time) | Only Nest thermostats/cameras/doorbells are available via Google's cloud API. |
 | Home Assistant | Public URL + long-lived token | The bridge for everything else (Zigbee, Z-Wave, Matter, Hue, Shelly…). |
 | Motion Blinds | Motion key (from the app) + the home bridge in `bridge/` | The gateway API is LAN-only, so `bridge/motion-bridge.mjs` runs at home and relays state and commands. See `bridge/README.md`. |
