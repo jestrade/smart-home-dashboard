@@ -8,4 +8,5 @@ interface ImportMetaEnv {
   readonly VITE_USE_FUNCTIONS_EMULATOR?: string;
   readonly VITE_DEMO?: string;
   readonly VITE_RECAPTCHA_SITE_KEY?: string;
+  readonly VITE_RECAPTCHA_PROVIDER?: 'enterprise' | 'v3';
 }

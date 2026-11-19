@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { ReCaptchaV3Provider, initializeAppCheck } from 'firebase/app-check';
+import { ReCaptchaEnterpriseProvider, ReCaptchaV3Provider, initializeAppCheck } from 'firebase/app-check';
 import {
   GoogleAuthProvider, connectAuthEmulator, getAuth, onAuthStateChanged, signInWithPopup, signOut,
 } from 'firebase/auth';
@@ -24,10 +24,16 @@ const toDate = (v: unknown) => (v instanceof Timestamp ? v.toDate() : null);
 
 export function createFirebaseBackend(): Backend {
   const app = initializeApp(firebaseConfig);
-  // App Check (reCAPTCHA v3): only once a site key is configured. The functions count verified
-  // calls first and only refuse unverified ones when enforcement is switched on.
+  // App Check: only once a reCAPTCHA site key is configured. Use the provider the web app was
+  // registered with in Firebase Console → App Check (Enterprise by default, or "v3").
+  // The functions count verified calls first and refuse unverified ones only when enforcing.
   const appCheckKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
-  if (appCheckKey) initializeAppCheck(app, { provider: new ReCaptchaV3Provider(appCheckKey), isTokenAutoRefreshEnabled: true });
+  if (appCheckKey) {
+    const provider = import.meta.env.VITE_RECAPTCHA_PROVIDER === 'v3'
+      ? new ReCaptchaV3Provider(appCheckKey)
+      : new ReCaptchaEnterpriseProvider(appCheckKey);
+    initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true });
+  }
   const auth = getAuth(app);
   const db = getFirestore(app);
   const fns = getFunctions(app, REGION);
