@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { useStored } from './Collapse';
-import { PROVIDERS, type ProviderMeta } from '../providers';
+import { CATEGORIES, PROVIDERS, type ProviderCategory, type ProviderMeta } from '../providers';
 import type { Backend } from '../data';
 import type { IntegrationStatus, ProviderId } from '../types';
 
 type Filter = 'all' | 'connected' | 'disconnected';
+type Category = ProviderCategory | 'all';
 
 export function IntegrationsView({ backend, status, notify }: {
   backend: Backend;
@@ -15,15 +16,20 @@ export function IntegrationsView({ backend, status, notify }: {
   // All cards start closed; whatever the user opens stays open across reloads and sign-in redirects.
   const [openIds, setOpenIds] = useStored<ProviderId[]>('integrations.open', []);
   const [filter, setFilter] = useStored<Filter>('integrations.filter', 'all');
+  const [category, setCategory] = useStored<Category>('integrations.category', 'all');
   const isConnected = (id: ProviderId) => Boolean(status[id]?.connected);
+  const matchesStatus = (p: ProviderMeta, f: Filter) =>
+    f === 'all' ? true : f === 'connected' ? isConnected(p.id) : !isConnected(p.id);
+  // The category tabs and the status chips combine; each count reflects the other selection.
+  const inCategory = PROVIDERS.filter((p) => category === 'all' || p.category === category);
   const counts = {
-    all: PROVIDERS.length,
-    connected: PROVIDERS.filter((p) => isConnected(p.id)).length,
-    disconnected: PROVIDERS.filter((p) => !isConnected(p.id)).length,
+    all: inCategory.length,
+    connected: inCategory.filter((p) => matchesStatus(p, 'connected')).length,
+    disconnected: inCategory.filter((p) => matchesStatus(p, 'disconnected')).length,
   };
-  const shown = PROVIDERS.filter((p) =>
-    filter === 'all' ? true : filter === 'connected' ? isConnected(p.id) : !isConnected(p.id),
-  );
+  const categoryCount = (c: Category) =>
+    PROVIDERS.filter((p) => (c === 'all' || p.category === c) && matchesStatus(p, filter)).length;
+  const shown = inCategory.filter((p) => matchesStatus(p, filter));
   const toggle = (id: ProviderId) =>
     setOpenIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const FILTERS: [Filter, string][] = [['all', 'All'], ['connected', 'Connected'], ['disconnected', 'Not connected']];
@@ -33,6 +39,14 @@ export function IntegrationsView({ backend, status, notify }: {
       {backend.mode === 'demo' && (
         <p className="notice">Demo mode: no real accounts are contacted. Add your Firebase config to <code>web/.env.local</code> to go live.</p>
       )}
+      <div className="seg" role="tablist" aria-label="Integration categories">
+        {([['all', 'All'], ...CATEGORIES] as [Category, string][]).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={category === id} className={category === id ? 'on' : ''}
+            onClick={() => setCategory(id)}>
+            {label} <span className="count">{categoryCount(id)}</span>
+          </button>
+        ))}
+      </div>
       <div className="list-toolbar">
         <div className="chips" role="group" aria-label="Filter integrations">
           {FILTERS.map(([id, label]) => (
@@ -50,7 +64,7 @@ export function IntegrationsView({ backend, status, notify }: {
           open={openIds.includes(p.id)} onToggle={() => toggle(p.id)} />
       ))}
       {shown.length === 0 && (
-        <p className="empty">{filter === 'connected' ? 'Nothing connected yet.' : 'Everything is connected.'}</p>
+        <p className="empty">{filter === 'connected' ? 'Nothing connected here yet.' : filter === 'disconnected' ? 'Everything here is connected.' : 'No integrations in this category.'}</p>
       )}
     </div>
   );

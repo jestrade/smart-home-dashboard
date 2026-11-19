@@ -9,9 +9,21 @@ export interface ConfigField {
   help?: string;
 }
 
+/** Groups the Integrations tab by what a provider brings in. */
+export type ProviderCategory = 'home' | 'cameras' | 'car' | 'solar';
+
+/** Tab order and labels on the Integrations tab. */
+export const CATEGORIES: [ProviderCategory, string][] = [
+  ['home', 'Smart home'],
+  ['cameras', 'Cameras'],
+  ['car', 'Car & charging'],
+  ['solar', 'Solar'],
+];
+
 export interface ProviderMeta {
   id: ProviderId;
   name: string;
+  category: ProviderCategory;
   blurb: string;
   color: string;
   oauth: boolean;
@@ -30,6 +42,7 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'tuya',
     name: 'Tuya / Smart Life',
+    category: 'home',
     blurb: 'Lights, plugs, switches, sensors and curtains paired in the Tuya or Smart Life app.',
     color: '#ff5a1f',
     oauth: false,
@@ -55,6 +68,7 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'volvo',
     name: 'Volvo Cars',
+    category: 'car',
     blurb: 'Read-only: battery, charging, range, doors, windows, tyres, warnings, trip statistics and location.',
     color: '#1c6bba',
     oauth: true,
@@ -76,6 +90,7 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'google',
     name: 'Google Nest',
+    category: 'home',
     blurb: 'Nest thermostats, cameras and doorbells through Google Device Access.',
     color: '#34a853',
     oauth: true,
@@ -95,6 +110,7 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'homeassistant',
     name: 'Home Assistant',
+    category: 'home',
     blurb: 'Everything else: Zigbee, Z-Wave, Matter, Hue, Shelly… through your Home Assistant.',
     color: '#18bcf2',
     oauth: false,
@@ -114,6 +130,7 @@ export const PROVIDERS: ProviderMeta[] = [
 PROVIDERS.push({
   id: 'smartthings',
   name: 'SmartThings',
+  category: 'home',
   blurb: 'Samsung SmartThings: lights, switches, plugs, ACs, thermostats, locks, blinds and sensors, with your SmartThings rooms.',
   color: '#1428a0',
   oauth: false,
@@ -136,6 +153,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'imou',
   name: 'Imou Life',
+  category: 'cameras',
   blurb: 'Imou cameras: online status, privacy mode on/off and snapshots.',
   color: '#ff6a00',
   oauth: false,
@@ -154,6 +172,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'motion',
   name: 'Motion Blinds',
+  category: 'home',
   blurb: 'Motion Blinds / Coulisse motors through your Motion gateway: open, close, stop and position.',
   color: '#7a4dd8',
   oauth: false,
@@ -171,6 +190,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'solis',
   name: 'SolisCloud',
+  category: 'solar',
   blurb: 'Solis solar inverters (read-only): live production, today’s curve, daily history, home use, grid and battery.',
   color: '#f2a900',
   oauth: false,
@@ -189,6 +209,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'wallbox',
   name: 'Wallbox',
+  category: 'car',
   blurb: 'Wallbox chargers (Pulsar, Commander, Copper), read-only: live power, sessions, costs and configuration.',
   color: '#00b388',
   oauth: false,
@@ -207,6 +228,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'tesla',
   name: 'Tesla',
+  category: 'car',
   blurb: 'Read-only: battery, charging, range, doors, windows, tyre warnings and location. Sleeping cars are not woken.',
   color: '#e82127',
   oauth: true,
@@ -229,6 +251,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'hyundai',
   name: 'Hyundai',
+  category: 'car',
   blurb: 'Read-only, Europe only, through the Pleos Vehicle Data API (EU Data Act). Needs Pleos approval.',
   color: '#002c5f',
   oauth: false,
@@ -249,6 +272,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'volkswagen',
   name: 'Volkswagen',
+  category: 'car',
   blurb: 'Unofficial / best-effort: read-only car status through a gateway you run or subscribe to (e.g. CarConnectivity). VW has no public owner API.',
   color: '#001e50',
   oauth: false,
@@ -268,6 +292,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'byd',
   name: 'BYD',
+  category: 'car',
   blurb: 'Unofficial / best-effort: read-only car status through a gateway you run or subscribe to. BYD has no public owner API.',
   color: '#c8102e',
   oauth: false,
@@ -287,6 +312,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'huawei',
   name: 'Huawei FusionSolar',
+  category: 'solar',
   blurb: 'Huawei solar inverters (read-only): live production, today’s and lifetime energy, inverters.',
   color: '#c7000b',
   oauth: false,
@@ -306,6 +332,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'solaredge',
   name: 'SolarEdge',
+  category: 'solar',
   blurb: 'SolarEdge sites (read-only): live production, today, month, year and lifetime energy.',
   color: '#e4002b',
   oauth: false,
@@ -323,6 +350,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'enphase',
   name: 'Enphase Enlighten',
+  category: 'solar',
   blurb: 'Enphase systems (read-only): live production, today’s and lifetime energy, system status.',
   color: '#f37321',
   oauth: true,
@@ -344,6 +372,7 @@ PROVIDERS.push({
 PROVIDERS.push({
   id: 'growatt',
   name: 'Growatt',
+  category: 'solar',
   blurb: 'Growatt plants (read-only): live production, today, month, year and lifetime energy.',
   color: '#00a0e9',
   oauth: false,

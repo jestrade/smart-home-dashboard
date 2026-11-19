@@ -584,6 +584,7 @@ i.s-grid, .split-bar .s-grid { background: var(--s-grid); }
 .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-2); margin-bottom: 12px; flex-wrap: wrap; }
 .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; font: inherit; font-size: 14px; color: var(--muted); cursor: pointer; }
 .seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.seg .count { font-size: 11px; font-weight: 500; opacity: .7; margin-left: 2px; }
 .splits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 12px; }
 .split { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: var(--surface-2); }
 .split-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
