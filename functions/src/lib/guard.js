@@ -182,14 +182,17 @@ export async function deniedCall(req, name) {
 
 // App Check in monitor mode: count how many calls carry a valid App Check token, so it is safe to
 // see whether every real device (phone, car browser) passes before enforcing it.
+// Counted per instance and written at most once a minute (or every 50 calls), so a quiet
+// household still sees its numbers and a busy one doesn't write on every call.
 let appCheck = { verified: 0, missing: 0, since: Date.now() };
 function appCheckSeen(ok) {
   appCheck[ok ? 'verified' : 'missing'] += 1;
-  if (appCheck.verified + appCheck.missing >= 50) flushAppCheck();
+  if (appCheck.verified + appCheck.missing >= 50 || Date.now() - appCheck.since > WINDOW_MS) flushAppCheck();
 }
 async function flushAppCheck() {
   const { verified, missing } = appCheck;
   appCheck = { verified: 0, missing: 0, since: Date.now() };
+  if (!verified && !missing) return;
   try {
     await db.doc('security/appCheck').set(
       { verified: FieldValue.increment(verified), missing: FieldValue.increment(missing), updatedAt: Date.now() },
