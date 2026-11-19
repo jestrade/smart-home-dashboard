@@ -75,25 +75,11 @@ const house: HousePlan | null = {
   ],
   // Sliding glass doors from the dining area onto the deck.
   glass: [[400, 700, 600, 700]],
+  // Only what is outside the rooms: the car, the front door and the garden. Add beds, sofas,
+  // tables and so on with kinds like 'bed', 'sofa', 'table', 'tv' (see Furniture in web/src/home/types.ts).
   furniture: [
     { kind: 'car', rect: [110, 90, 290, 560], head: 'n' },
-    { kind: 'counter', rect: [410, 10, 890, 70] },
-    { kind: 'island', rect: [540, 170, 780, 240] },
-    { kind: 'table', rect: [520, 440, 760, 600] },
-    { kind: 'sofa', rect: [960, 200, 1060, 520], head: 'w' },
-    { kind: 'round', rect: [1180, 310, 1280, 410] },
-    { kind: 'tv', rect: [1492, 220, 1492, 500], head: 'e' },
-    { kind: 'console', rect: [1450, 200, 1492, 520], head: 'e' },
-    { kind: 'plant', rect: [920, 610, 980, 670] },
     { kind: 'door', rect: [1050, 0, 1150, 0], head: 's' },
-    { kind: 'bed', rect: [1270, 730, 1470, 970], head: 'e' },
-    { kind: 'wardrobe', rect: [1070, 930, 1240, 990] },
-    { kind: 'bed', rect: [1300, 1360, 1480, 1580], head: 'e' },
-    { kind: 'wardrobe', rect: [1070, 1160, 1250, 1220] },
-    { kind: 'bed', rect: [620, 1120, 770, 1290], head: 'w' },
-    { kind: 'table', rect: [650, 770, 850, 870] },
-    { kind: 'toilet', rect: [1430, 1020, 1480, 1070] },
-    { kind: 'counter', rect: [610, 1310, 670, 1590] },
     // Deck and back yard: a round table, planters and two pines
     { kind: 'round', rect: [180, 850, 320, 990] },
     { kind: 'planter', rect: [20, 720, 140, 780] }, { kind: 'planter', rect: [460, 1080, 580, 1140] },
