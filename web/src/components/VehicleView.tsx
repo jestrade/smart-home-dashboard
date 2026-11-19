@@ -4,7 +4,7 @@ import { CollapseButton, Section as CollapsibleSection, useCollapsed } from './C
 import { displayName, type Device } from '../types';
 import { profileFor, type CarProfile } from '../carProfiles';
 
-// Read-only view of everything Volvo reports about each car.
+// Read-only view of everything a connected car reports.
 
 const num = (n?: number, digits = 0) =>
   n == null ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
@@ -52,7 +52,7 @@ export function VehicleView({ vehicles, onConnect }: { vehicles: Device[]; onCon
       <div className="empty">
         <Icon name="vehicle" size={40} />
         <p>No vehicles yet.</p>
-        <button className="btn primary" onClick={onConnect}>Connect Volvo</button>
+        <button className="btn primary" onClick={onConnect}>Connect a car</button>
       </div>
     );
   }
