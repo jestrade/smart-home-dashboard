@@ -10,6 +10,9 @@ const config: HomeConfig = {
   // Car details the car's API doesn't return (model, colour, photos). Import photos like
   // `import side from './car/side.webp'` and list them here. See web/src/carProfiles.ts.
   cars: [],
+  // 3D models for the cars on the floor plan, in the order of the `car` items in house.ts:
+  // `import ev from './car/model.glb?url'` → carModels: [ev]. Without one, a generic car is drawn.
+  carModels: [],
   // Optional page backgrounds: `import light from './bg/light.jpg'` → { light, dark }.
   backgrounds: {},
 };

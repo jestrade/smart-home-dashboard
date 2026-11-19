@@ -1,4 +1,5 @@
-// Saves the house model as a binary glTF: npm run export:glb [output path]
+// Saves the house model as a binary glTF: npm run export:glb [output path] [car .glb …]
+// Without car models the simple generic car is exported.
 // Same geometry as the Home tab's 3D plan (web/src/floorplan). Units are metres, y up.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -23,8 +24,11 @@ class NodeFileReader {
 
 const out = resolve(process.argv[2] ?? 'house.glb');
 const house = buildHouse();
-const car = readFileSync(new URL('../public/models/xc40.glb', import.meta.url));
-await upgradeCars(house, car.buffer.slice(car.byteOffset, car.byteOffset + car.byteLength) as ArrayBuffer);
+const cars = process.argv.slice(3).map((path) => {
+  const b = readFileSync(resolve(path));
+  return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+});
+await upgradeCars(house, cars);
 house.updateMatrixWorld(true);
 
 const glb = await new GLTFExporter().parseAsync(house, { binary: true });

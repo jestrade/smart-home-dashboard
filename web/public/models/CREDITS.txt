@@ -1,5 +1,0 @@
-xc40.glb is based on "Volvo XC40 Recharge 2020"
-(https://sketchfab.com/3d-models/volvo-xc40-recharge-2020-2a80dae5c1804d25bdca7d36a988f59b)
-by Nieve5677 (https://sketchfab.com/niev), licensed under CC-BY-4.0
-(http://creativecommons.org/licenses/by/4.0/).
-Changes: simplified and compressed for the web, each part recoloured.

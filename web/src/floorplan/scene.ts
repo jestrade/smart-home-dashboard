@@ -61,7 +61,7 @@ const M = {
   dark: mat(0x3d4045),
   plant: mat(0x3f6e37),
   pot: mat(0xb9a58d),
-  carBlue: mat(0x4f7391, { roughness: 0.35, metalness: 0.25 }), // Fjord Blue
+  carPaint: mat(0x9aa3ab, { roughness: 0.35, metalness: 0.35 }), // neutral silver
   tail: mat(0xb3261e),
   rim: mat(0xb9bcc0, { roughness: 0.4, metalness: 0.5 }),
   carGlass: mat(0x39444f, { roughness: 0.2 }),
@@ -92,13 +92,14 @@ function segBox(s: Seg, thickness: number, y0: number, y1: number, material: THR
 const WALL_MATS = [M.wall, M.wall, M.cap, M.wall, M.wall, M.wall];
 
 /**
- * A Volvo XC40 Recharge at real size (4.44 × 1.86 × 1.65 m), nose towards +z.
+ * A generic compact SUV (about 4.4 × 1.9 × 1.65 m), nose towards +z. Shown until the
+ * household's own car model loads, or for good when there is none.
  * The body and the glasshouse are side profiles extruded across the car's width.
  */
-function xc40(L: number, W: number): THREE.Group {
+function simpleCar(L: number, W: number): THREE.Group {
   const car = new THREE.Group();
-  car.name = 'Volvo XC40';
-  const k = L / 4.44; // profile points below are in metres for the real car
+  car.name = 'Simple car';
+  const k = L / 4.44; // profile points below are in metres for a 4.44 m car
   /** Extrudes a side profile [distance from centre towards the nose, height] across `width`. */
   const profile = (pts: [number, number][], width: number, m: THREE.Material) => {
     const shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x * k, y)));
@@ -118,16 +119,16 @@ function xc40(L: number, W: number): THREE.Group {
 
   // Black sill and bumper cladding, then the painted body with the rising belt line at the rear door.
   profile([[-2.2, 0.22], [2.2, 0.22], [2.22, 0.5], [-2.22, 0.5]], W, M.dark);
-  profile([[-2.22, 0.42], [2.22, 0.42], [2.22, 0.8], [2.14, 0.97], [1.2, 1.07], [-0.95, 1.1], [-1.75, 1.24], [-2.18, 1.24], [-2.22, 0.9]], W * 0.995, M.carBlue);
+  profile([[-2.22, 0.42], [2.22, 0.42], [2.22, 0.8], [2.14, 0.97], [1.2, 1.07], [-0.95, 1.1], [-1.75, 1.24], [-2.18, 1.24], [-2.22, 0.9]], W * 0.995, M.carPaint);
   // Glasshouse: raked windscreen, flat roof, upright tailgate glass.
   profile([[1.2, 1.07], [0.42, 1.58], [-1.7, 1.58], [-2.12, 1.24], [-1.75, 1.24], [-0.95, 1.1]], W * 0.9, M.carGlass);
   // Body-colour pillars: A-pillars at the windscreen and the thick, kicked-up C-pillar.
-  profile([[-1.3, 1.16], [-1.75, 1.24], [-2.12, 1.24], [-1.72, 1.58], [-1.5, 1.58]], W * 0.91, M.carBlue);
-  // Black roof with a small spoiler (the Recharge's two-tone look).
+  profile([[-1.3, 1.16], [-1.75, 1.24], [-2.12, 1.24], [-1.72, 1.58], [-1.5, 1.58]], W * 0.91, M.carPaint);
+  // Black roof with a small spoiler (two-tone).
   profile([[0.45, 1.58], [0.3, 1.64], [-1.6, 1.65], [-1.95, 1.6], [-1.7, 1.56]], W * 0.9, M.dark);
 
   // Front: closed, body-colour panel instead of a grille; slim headlights; lower intake.
-  box(W * 0.5, 0.2, 0.03, 0, 0.78, 2.21, M.carBlue);
+  box(W * 0.5, 0.2, 0.03, 0, 0.78, 2.21, M.carPaint);
   box(W * 0.6, 0.12, 0.04, 0, 0.5, 2.21, M.dark);
   for (const sx of [-1, 1]) {
     box(W * 0.2, 0.07, 0.06, sx * W * 0.36, 0.86, 2.18, M.pillow); // headlight
@@ -449,7 +450,7 @@ function furniture(f: Furniture): THREE.Object3D {
       break;
     }
     case 'car': {
-      g.add(xc40(Math.max(w, d), Math.min(w, d)));
+      g.add(simpleCar(Math.max(w, d), Math.min(w, d)));
       g.children[0].position.set(cx, 0, cz);
       g.children[0].rotation.y = { s: 0, e: Math.PI / 2, n: Math.PI, w: -Math.PI / 2 }[f.head ?? 's'];
       break;
@@ -603,22 +604,28 @@ export function fitCar(model: THREE.Object3D, f: Furniture): THREE.Group {
   const c = box.getCenter(new THREE.Vector3());
   model.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
   const car = new THREE.Group();
-  car.name = 'Volvo XC40 Recharge';
+  car.name = 'Car model';
   car.add(model);
   car.position.set((a.x + b.x) / 2, 0.03, (a.z + b.z) / 2);
   car.rotation.y = { s: 0, e: Math.PI / 2, n: Math.PI, w: -Math.PI / 2 }[f.head ?? 's'];
   return car;
 }
 
-/** Swaps the block cars in a house for the detailed model (parsed from the .glb's bytes). */
-export async function upgradeCars(house: THREE.Group, glb: ArrayBuffer) {
+/**
+ * Swaps the simple cars in a house for detailed models (each a .glb's bytes): the first car
+ * gets the first model, and so on, reusing the last model when there are more cars.
+ */
+export async function upgradeCars(house: THREE.Group, glbs: ArrayBuffer[]) {
+  if (!glbs.length) return;
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  const gltf = await loader.parseAsync(glb, '');
-  const cars = FURNITURE.filter((f) => f.kind === 'car');
-  cars.forEach((f, i) => {
-    const old = house.children.filter((o) => o.name === 'Car')[0];
+  const models = await Promise.all(glbs.map((g) => loader.parseAsync(g, '').then((m) => m.scene)));
+  const used = new Set<THREE.Object3D>();
+  FURNITURE.filter((f) => f.kind === 'car').forEach((f, i) => {
+    const old = house.children.find((o) => o.name === 'Car');
     if (old) house.remove(old);
-    house.add(fitCar(i === cars.length - 1 ? gltf.scene : gltf.scene.clone(true), f));
+    const model = models[Math.min(i, models.length - 1)];
+    house.add(fitCar(used.has(model) ? model.clone(true) : model, f));
+    used.add(model);
   });
 }
 
@@ -817,7 +824,8 @@ export interface HouseScene {
   dispose(): void;
 }
 
-export function createHouse(canvas: HTMLCanvasElement): HouseScene {
+/** `carModels`: URLs of the household's .glb car models (HomeConfig.carModels). */
+export function createHouse(canvas: HTMLCanvasElement, { carModels = [] }: { carModels?: string[] } = {}): HouseScene {
   const small = window.matchMedia('(max-width: 700px)').matches;
   installSoftShadows();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -867,11 +875,11 @@ export function createHouse(canvas: HTMLCanvasElement): HouseScene {
 
   const house = buildHouse();
   scene.add(house);
-  // The simple car shows at once; the detailed one replaces it when its file arrives.
+  // The simple car shows at once; the household's own models replace it when their files arrive.
   let disposed = false;
-  fetch('/models/xc40.glb')
-    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
-    .then((glb) => upgradeCars(house, glb))
+  Promise.all(carModels.map((url) =>
+    fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))))
+    .then((glbs) => upgradeCars(house, glbs))
     .then(() => { if (!disposed) controls.dispatchEvent({ type: 'change' }); })
     .catch(() => { /* keep the simple car */ });
 

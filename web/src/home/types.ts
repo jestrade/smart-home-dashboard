@@ -75,6 +75,13 @@ export interface HomeConfig {
   appName: string;
   /** Static details and photos for the household's cars (see carProfiles.ts). */
   cars?: CarProfile[];
+  /**
+   * 3D models (.glb) for the cars on the floor plan, imported with `?url`
+   * (`import ev from './car/model.glb?url'`). The first `car` in house.ts gets the first model,
+   * and so on; the last model is reused when there are more cars. Without any, a simple
+   * generic car is drawn. Each model's nose should point towards +z; it is scaled to its spot.
+   */
+  carModels?: string[];
   /** Page background photos (imported images), shown blurred behind the cards. */
   backgrounds?: { light?: string; dark?: string };
 }

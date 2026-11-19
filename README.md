@@ -99,11 +99,32 @@ photos never reach the repository. Without it the app uses the sample in `home.e
 | --- | --- |
 | `home/site.json` | The app's name and the contact email shown on the terms page. |
 | `home/house.ts` | The one-floor plan behind the 3D view on the Home tab: rooms (with the room names that map to them), walls, doors, windows, furniture and the plot. Export `null` to hide the plan. |
-| `home/home.config.ts` | Car profiles with photos, and the page background photos. |
+| `home/home.config.ts` | Car profiles with photos, 3D car models, and the page background photos. |
+| `home/car/*.glb` | Optional 3D model of each car on the plan (see below). |
 
 To trace your house, open a floor plan image, read the corners in pixels and set `scale` to
 metres per pixel. `npm --prefix web run export:glb -- ../home/house.glb` saves the result as a
-glTF model you can open in Blender or any 3D viewer.
+glTF model you can open in Blender or any 3D viewer. Add car models after the output path to
+include them: `npm --prefix web run export:glb -- ../home/house.glb ../home/car/model.glb`.
+
+### Your car in 3D
+
+The plan draws a simple generic car on each `car` item in `house.ts`. To show your own, download
+a `.glb` of your car (Sketchfab and similar sites have many, often CC-BY; keep the credit next to
+it), save it in `home/car/` and list it in `home/home.config.ts`:
+
+```ts
+import ev from './car/model.glb?url';
+
+const config: HomeConfig = {
+  // …
+  carModels: [ev], // one per car in house.ts, in order; the last one is reused
+};
+```
+
+The model is scaled to the car's spot on the plan and turned to its `head` direction, so only its
+nose needs to point towards +z. Keep it small for phones: a few MB at most (for example
+`npx @gltf-transform/cli optimize in.glb out.glb --compress meshopt`).
 
 Keep `home/` backed up somewhere private (a private repository or a synced folder).
 

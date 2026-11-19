@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon, deviceIcon } from '../components/Icon';
 import { displayName, type Device } from '../types';
 import { FLOORS, toM, type Zone } from './plan';
+import { home } from '../home';
 import { createHouse, type HouseScene } from './scene';
 import type { Pin } from './mapping';
 
@@ -75,7 +76,7 @@ export default function FloorplanScene({ pins, labels, selected, editing, onSele
   useEffect(() => {
     let house: HouseScene;
     try {
-      house = createHouse(canvasRef.current!);
+      house = createHouse(canvasRef.current!, { carModels: home.carModels });
     } catch {
       setFailed(true); // no WebGL
       return;
