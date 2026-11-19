@@ -1,5 +1,6 @@
 export type ProviderId = 'tuya' | 'volvo' | 'google' | 'homeassistant' | 'wallbox' | 'smartthings' | 'imou' | 'solis' | 'motion'
-  | 'tesla' | 'byd' | 'volkswagen' | 'hyundai';
+  | 'tesla' | 'byd' | 'volkswagen' | 'hyundai'
+  | 'huawei' | 'solaredge' | 'enphase' | 'growatt';
 
 export type DeviceType =
   | 'light' | 'switch' | 'plug' | 'fan' | 'thermostat' | 'sensor'

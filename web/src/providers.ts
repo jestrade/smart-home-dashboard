@@ -284,4 +284,78 @@ PROVIDERS.push({
   ],
 });
 
+PROVIDERS.push({
+  id: 'huawei',
+  name: 'Huawei FusionSolar',
+  blurb: 'Huawei solar inverters (read-only): live production, today’s and lifetime energy, inverters.',
+  color: '#c7000b',
+  oauth: false,
+  docsUrl: 'https://support.huawei.com/enterprise/en/doc/EDOC1100261860',
+  steps: [
+    'Ask the FusionSolar company admin to create a Northbound API user: System → Company Management → Northbound Management. This is not your normal FusionSolar login.',
+    'Copy the API user name and system code. Set the host to your region if it is not eu5.',
+    'Huawei allows only one API session at a time: a new login can sign out another API tool (for example an installer’s). Syncs as soon as you save.',
+  ],
+  fields: [
+    { key: 'userName', label: 'API user name' },
+    { key: 'systemCode', label: 'System code', secret: true },
+    { key: 'endpoint', label: 'Host', optional: true, placeholder: 'https://eu5.fusionsolar.huawei.com', help: 'The FusionSolar host for your region, e.g. https://intl.fusionsolar.huawei.com or https://eu5.fusionsolar.huawei.com.' },
+  ],
+});
+
+PROVIDERS.push({
+  id: 'solaredge',
+  name: 'SolarEdge',
+  blurb: 'SolarEdge sites (read-only): live production, today, month, year and lifetime energy.',
+  color: '#e4002b',
+  oauth: false,
+  docsUrl: 'https://knowledge-center.solaredge.com/sites/kc/files/se_monitoring_api.pdf',
+  steps: [
+    'In the SolarEdge monitoring portal: Admin → Site Access → API access. Accept the terms and copy the API key.',
+    'Site ID is optional: leave it blank to show every site the key can see. Syncs as soon as you save.',
+  ],
+  fields: [
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'siteId', label: 'Site ID', optional: true, help: 'Only needed to show one site when the key covers several.' },
+  ],
+});
+
+PROVIDERS.push({
+  id: 'enphase',
+  name: 'Enphase Enlighten',
+  blurb: 'Enphase systems (read-only): live production, today’s and lifetime energy, system status.',
+  color: '#f37321',
+  oauth: true,
+  docsUrl: 'https://developer-v4.enphase.com/docs/quickstart.html',
+  steps: [
+    'Create an application at developer-v4.enphase.com and copy its API key, client ID and client secret.',
+    'Add the redirect URI shown below to the application, then press Connect and sign in with your Enlighten account.',
+  ],
+  fields: [
+    { key: 'clientId', label: 'Client ID' },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'systemId', label: 'System ID', optional: true, help: 'Only needed to show one system when the account has several.' },
+    { key: 'pollMinutes', label: 'Poll every (minutes)', optional: true, placeholder: '60', help: 'Minimum time between Enphase calls. The free Watt plan has a small monthly quota; 60 minutes keeps one system within it.' },
+    { key: 'redirectUri', label: 'Redirect URI override', optional: true },
+  ],
+});
+
+PROVIDERS.push({
+  id: 'growatt',
+  name: 'Growatt',
+  blurb: 'Growatt plants (read-only): live production, today, month, year and lifetime energy.',
+  color: '#00a0e9',
+  oauth: false,
+  docsUrl: 'https://www.showdoc.com.cn/262556420217021/0',
+  steps: [
+    'Get an API token from your Growatt OSS / ShineServer account (or ask your installer to issue one).',
+    'Use the endpoint for your region if it is not the global one. Syncs as soon as you save.',
+  ],
+  fields: [
+    { key: 'token', label: 'API token', secret: true },
+    { key: 'endpoint', label: 'API URL', optional: true, placeholder: 'https://openapi.growatt.com', help: 'Regional servers: https://openapi-us.growatt.com, https://openapi-au.growatt.com, https://openapi-cn.growatt.com.' },
+  ],
+});
+
 export const providerMeta = (id: ProviderId) => PROVIDERS.find((p) => p.id === id)!;

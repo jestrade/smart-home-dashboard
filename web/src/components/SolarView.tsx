@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { CollapseButton, Section as CollapsibleSection, useCollapsed } from './Collapse';
 import { displayName, type Device, type DeviceState, type EnergyBalance } from '../types';
 
-// Read-only view of SolisCloud stations: power flow now, energy balance per period, today's power,
+// Read-only view of solar stations: power flow now, energy balance per period, today's power,
 // history, weather, plant details and inverters.
 
 const n = (v?: number, digits = 1) => (v == null ? '—' : v.toLocaleString(undefined, { maximumFractionDigits: digits }));
@@ -316,7 +316,7 @@ export function SolarView({ stations, onConnect }: { stations: Device[]; onConne
       <div className="empty">
         <Icon name="sun" size={40} />
         <p>No solar stations yet.</p>
-        <button className="btn primary" onClick={onConnect}>Connect SolisCloud</button>
+        <button className="btn primary" onClick={onConnect}>Connect a solar system</button>
       </div>
     );
   }

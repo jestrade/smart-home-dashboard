@@ -6,8 +6,11 @@ export class ProviderError extends Error {
   }
 }
 
-/** fetch() wrapper that parses JSON and throws ProviderError with a useful message on failure. */
-export async function fetchJson(url, { method = 'GET', headers = {}, body, form } = {}) {
+/**
+ * fetch() wrapper that parses JSON and throws ProviderError with a useful message on failure.
+ * `onHeaders(headers)`, if given, receives the response headers (e.g. a session token sent as a header).
+ */
+export async function fetchJson(url, { method = 'GET', headers = {}, body, form, onHeaders } = {}) {
   const init = { method, headers: { Accept: 'application/json', ...headers } };
   if (form) {
     init.body = new URLSearchParams(form).toString();
@@ -18,6 +21,7 @@ export async function fetchJson(url, { method = 'GET', headers = {}, body, form 
   }
 
   const res = await fetch(url, init);
+  onHeaders?.(res.headers);
   const text = await res.text();
   let data = null;
   try {
