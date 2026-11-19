@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -6,7 +7,10 @@ import react from '@vitejs/plugin-react';
 // The household configuration: home/ (private, git-ignored) when it exists, else the sample in
 // home.example/. Everything personal (name, house plan, cars, photos) lives there.
 const repo = fileURLToPath(new URL('..', import.meta.url));
-const homeDir = existsSync(`${repo}home/home.config.ts`) ? `${repo}home` : `${repo}home.example`;
+// SMART_HOME_DIR picks another folder (e.g. SMART_HOME_DIR=home.example to see the sample).
+const homeDir = process.env.SMART_HOME_DIR
+  ? resolve(repo, process.env.SMART_HOME_DIR)
+  : existsSync(`${repo}home/home.config.ts`) ? `${repo}home` : `${repo}home.example`;
 const site = JSON.parse(readFileSync(`${homeDir}/site.json`, 'utf8')) as { appName: string; contactEmail?: string };
 
 /** Fills %APP_NAME% and %CONTACT% in the HTML pages (index.html, terms.html). */

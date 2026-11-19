@@ -64,13 +64,13 @@ function seed(): Device[] {
     d({ id: 'imou_entrada', provider: 'imou', providerId: 'CAM1', name: 'Entrada', type: 'camera', model: 'IPC-A22EP', capabilities: ['onoff', 'snapshot', 'live'], prefs: { room: 'Entrance' }, state: { on: true, imageUrl: '/car/front.webp' } }),
     d({ id: 'solis_1', provider: 'solis', providerId: '1000000000001', name: 'Demo Solar', type: 'solar', model: '8.8 kWp', suggestedRoom: 'Roof', capabilities: [], state: {
       statusLabel: 'Online', solarStatus: 'ok', powerKw: 4.25, capacityKwp: 8.8, todayKwh: 18.6, monthKwh: 212.4, yearKwh: 9800, totalKwh: 21300,
-      income: { today: 14415, month: 164610, year: 7595000, total: 16507500, currency: 'COP', pricePerKwh: 775 },
+      income: { today: 3.35, month: 38.23, year: 1764, total: 3834, currency: 'USD', pricePerKwh: 0.18 },
       flow: { homeLoadKw: 1.2, gridKw: 3.05 }, todayGrid: { boughtKwh: 4.1, soldKwh: 9.4, homeKwh: 13.3 }, peakSunHours: 2.1,
       periods: {
-        day: { producedKwh: 18.6, consumedKwh: 13.3, importKwh: 4.1, exportKwh: 9.4, selfKwh: 9.2, income: 14415, fullHours: 2.1 },
-        month: { producedKwh: 212.4, consumedKwh: 301.5, importKwh: 160.2, exportKwh: 71.1, selfKwh: 141.3, income: 164610, fullHours: 24.1 },
-        year: { producedKwh: 9800, consumedKwh: 11200, importKwh: 4300, exportKwh: 2900, selfKwh: 6900, income: 7595000, fullHours: 1113 },
-        total: { producedKwh: 21300, consumedKwh: 30100, importKwh: 14200, exportKwh: 5400, selfKwh: 15900, income: 16507500 },
+        day: { producedKwh: 18.6, consumedKwh: 13.3, importKwh: 4.1, exportKwh: 9.4, selfKwh: 9.2, income: 3.35, fullHours: 2.1 },
+        month: { producedKwh: 212.4, consumedKwh: 301.5, importKwh: 160.2, exportKwh: 71.1, selfKwh: 141.3, income: 38.23, fullHours: 24.1 },
+        year: { producedKwh: 9800, consumedKwh: 11200, importKwh: 4300, exportKwh: 2900, selfKwh: 6900, income: 1764.0, fullHours: 1113 },
+        total: { producedKwh: 21300, consumedKwh: 30100, importKwh: 14200, exportKwh: 5400, selfKwh: 15900, income: 3834.0 },
       },
       weather: { day: 'Cloudy', night: 'Light Rain', minC: 26, maxC: 31, sunrise: '05:54', sunset: '17:33', humidity: 82, windMs: 5.7, windDir: 'SSW' },
       environment: { co2Kg: 21236, coalKg: 8520, trees: 11.8 },
@@ -81,14 +81,14 @@ function seed(): Device[] {
         const made = Math.round((22 + 9 * Math.sin(i * 0.9) + (i % 5) * 1.3) * 10) / 10;
         const used = Math.round((30 + 8 * Math.cos(i * 0.7)) * 10) / 10;
         const sold = Math.round(made * 0.3 * 10) / 10;
-        return { day: new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10), kwh: made, producedKwh: made, consumedKwh: used, exportKwh: sold, selfKwh: Math.round((made - sold) * 10) / 10, importKwh: Math.round((used - made + sold) * 10) / 10, income: Math.round(made * 775) };
+        return { day: new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10), kwh: made, producedKwh: made, consumedKwh: used, exportKwh: sold, selfKwh: Math.round((made - sold) * 10) / 10, importKwh: Math.round((used - made + sold) * 10) / 10, income: Math.round(made * 0.18 * 100) / 100 };
       }),
       months: Array.from({ length: 11 }, (_, i) => {
         const made = i === 3 ? 0 : Math.round(700 + 200 * Math.sin(i * 0.8));
         const used = i === 3 ? 0 : Math.round(850 + 150 * Math.cos(i * 0.6));
-        return { month: `2026-${String(i + 1).padStart(2, '0')}`, producedKwh: made, consumedKwh: used, exportKwh: Math.round(made * 0.28), selfKwh: Math.round(made * 0.72), importKwh: Math.round(used - made * 0.72), income: made * 775 };
+        return { month: `2026-${String(i + 1).padStart(2, '0')}`, producedKwh: made, consumedKwh: used, exportKwh: Math.round(made * 0.28), selfKwh: Math.round(made * 0.72), importKwh: Math.round(used - made * 0.72), income: Math.round(made * 0.18 * 100) / 100 };
       }),
-      years: [['2023', 250, 470], ['2024', 3490, 7060], ['2025', 6500, 8510], ['2026', 9800, 11200]].map(([year, made, used]) => ({ year: String(year), producedKwh: Number(made), consumedKwh: Number(used), selfKwh: Math.round(Number(made) * 0.72), exportKwh: Math.round(Number(made) * 0.28), importKwh: Math.round(Number(used) - Number(made) * 0.72), income: Number(made) * 775 })),
+      years: [['2023', 250, 470], ['2024', 3490, 7060], ['2025', 6500, 8510], ['2026', 9800, 11200]].map(([year, made, used]) => ({ year: String(year), producedKwh: Number(made), consumedKwh: Number(used), selfKwh: Math.round(Number(made) * 0.72), exportKwh: Math.round(Number(made) * 0.28), importKwh: Math.round(Number(used) - Number(made) * 0.72), income: Math.round(Number(made) * 0.18) })),
       inverters: [{ sn: '1031130229100151', model: 'S6-GR1P5K', state: 'Online', kw: 4.25, todayKwh: 18.6, totalKwh: 21300 }],
     } }),
     d({ id: 'motion_a1b2c3d4e5f60001', provider: 'motion', providerId: 'a1b2c3d4e5f60001', name: 'Motion blind 0001', type: 'cover', model: 'Roller blind', capabilities: ['cover', 'position'], prefs: { room: 'Living room', name: 'Living room blind' }, state: { position: 30, open: true, batteryVolts: 11.95 } }),

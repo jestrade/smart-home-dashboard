@@ -4,10 +4,28 @@ One dashboard for Tuya / Smart Life devices, your Volvo, Google Nest, and anythi
 React + Vite frontend, Firebase Auth + Firestore + Cloud Functions backend.
 
 ```
-web/          React app (Home, Car, Integrations, Activity tabs)
-functions/    Cloud Functions: provider integrations, sync, commands, OAuth
+web/            React app (Home, Energy, Car, Charger, Solar, Integrations, Activity tabs)
+functions/      Cloud Functions: provider integrations, sync, commands, OAuth, per-IP guard
+bridge/         Runs at home for LAN-only devices (Motion Blinds)
+home.example/   Sample household configuration (copy to home/, which git ignores)
 firestore.rules
 ```
+
+## Screenshots
+
+Demo mode with the sample home (`npm --prefix web run demo:sample`).
+
+| Home | Energy |
+| --- | --- |
+| ![Home tab: widgets and the 3D floor plan with devices](docs/screenshots/desktop-home.webp) | ![Energy tab: live power, the day's curve and where the energy goes](docs/screenshots/desktop-energy.webp) |
+| **Integrations** | **Activity** |
+| ![Integrations tab: every provider and its status](docs/screenshots/desktop-setup.webp) | ![Activity tab: commands and the security log](docs/screenshots/desktop-activity.webp) |
+
+| Home | Energy | Setup | Activity |
+| --- | --- | --- | --- |
+| ![Home tab on a phone](docs/screenshots/mobile-home.webp) | ![Energy tab on a phone](docs/screenshots/mobile-energy.webp) | ![Integrations tab on a phone](docs/screenshots/mobile-setup.webp) | ![Activity tab on a phone](docs/screenshots/mobile-activity.webp) |
+
+To retake them, run the sample demo and then `node web/scripts/screenshots.mjs` (uses your installed Google Chrome).
 
 ## How it works
 
