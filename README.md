@@ -71,6 +71,10 @@ Open http://localhost:5173. Demo mode uses sample devices in memory.
 | Google Nest | Google Cloud OAuth client + Device Access project (US$5 one-time) | Only Nest thermostats/cameras/doorbells are available via Google's cloud API. |
 | Home Assistant | Public URL + long-lived token | The bridge for everything else (Zigbee, Z-Wave, Matter, Hue, Shelly…). |
 | Motion Blinds | Motion key (from the app) + the home bridge in `bridge/` | The gateway API is LAN-only, so `bridge/motion-bridge.mjs` runs at home and relays state and commands. See `bridge/README.md`. |
+| Huawei FusionSolar | Northbound API user (user name + system code) created by the company admin | Set the host for your region. Only one API session is allowed at a time, so a relogin can sign out another API tool. Read-only. |
+| SolarEdge | Monitoring API key (Admin → Site Access) | Site ID is optional. Each sync makes one list call plus one call per site, to stay under the daily quota. Read-only. |
+| Enphase Enlighten | App at developer-v4.enphase.com: API key, client ID, secret | Register the redirect URI shown in the card, then **Connect**. Polls at most every 60 min by default (free-plan quota). Read-only. |
+| Growatt | OpenAPI token from the Growatt OSS / ShineServer account | Pick the endpoint for your region. Read-only. |
 
 The OAuth redirect URI is `https://us-central1-<project-id>.cloudfunctions.net/oauthCallback`.
 
