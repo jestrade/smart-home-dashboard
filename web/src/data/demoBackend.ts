@@ -59,6 +59,34 @@ function seed(): Device[] {
       health: { oil: 'NO_WARNING', coolant: 'NO_WARNING', brakeFluid: 'NO_WARNING' },
       warnings: [], lampChecks: 24, unavailable: ['details', 'diagnostics', 'fuel'],
     } }),
+    d({ id: 'tesla_car', provider: 'tesla', providerId: '5YJ3DEMO000000001', name: 'Model 3', type: 'vehicle', suggestedRoom: 'Garage', capabilities: [], state: {
+      locked: true, doorsOpen: [], windowsOpen: [], odometerKm: 42180, batteryPercent: 58, rangeKm: 291, charging: 'CHARGING',
+      reportedAt: new Date(Date.now() - 4 * 60000).toISOString(),
+      location: { lat: 37.3947, lon: -122.1503, heading: 90, at: new Date(Date.now() - 4 * 60000).toISOString() },
+      doors: { frontLeftDoor: 'CLOSED', frontRightDoor: 'CLOSED', rearLeftDoor: 'CLOSED', rearRightDoor: 'CLOSED', hood: 'CLOSED', tailgate: 'CLOSED' },
+      windows: { frontLeftWindow: 'CLOSED', frontRightWindow: 'CLOSED', rearLeftWindow: 'CLOSED', rearRightWindow: 'CLOSED' },
+      charge: { connection: 'CONNECTED', powerW: 7400, currentLimitA: 32, targetPercent: 80, minutesToTarget: 95 },
+      details: { model: 'model3' },
+      warnings: [],
+    } }),
+    d({ id: 'byd_car', provider: 'byd', providerId: 'LGXCDEMO000000001', name: 'BYD Atto 3', type: 'vehicle', suggestedRoom: 'Garage', capabilities: [], state: {
+      locked: true, doorsOpen: [], windowsOpen: [], odometerKm: 9650, batteryPercent: 83, rangeKm: 348, charging: 'IDLE',
+      reportedAt: new Date(Date.now() - 25 * 60000).toISOString(),
+      location: { lat: 22.5431, lon: 114.0579, heading: 270, at: new Date(Date.now() - 25 * 60000).toISOString() },
+      warnings: [],
+    } }),
+    d({ id: 'volkswagen_car', provider: 'volkswagen', providerId: 'WVWDEMO0000000001', name: 'ID.4', type: 'vehicle', suggestedRoom: 'Garage', capabilities: [], state: {
+      locked: false, doorsOpen: ['tailgate'], windowsOpen: [], odometerKm: 27311, batteryPercent: 41, rangeKm: 172, charging: 'IDLE',
+      reportedAt: new Date(Date.now() - 8 * 60000).toISOString(),
+      location: { lat: 52.4227, lon: 10.7865, heading: 12, at: new Date(Date.now() - 8 * 60000).toISOString() },
+      warnings: [],
+    } }),
+    d({ id: 'hyundai_car', provider: 'hyundai', providerId: 'KMHDEMO0000000001', name: 'Ioniq 5', type: 'vehicle', suggestedRoom: 'Garage', capabilities: [], state: {
+      locked: true, doorsOpen: [], windowsOpen: [], odometerKm: 15402, batteryPercent: 100, rangeKm: 455, charging: 'DONE',
+      reportedAt: new Date(Date.now() - 15 * 60000).toISOString(),
+      location: { lat: 50.1109, lon: 8.6821, heading: 200, at: new Date(Date.now() - 15 * 60000).toISOString() },
+      warnings: [],
+    } }),
     d({ id: 'smartthings_ac', provider: 'smartthings', providerId: 'ac1', name: 'AC Samsung', type: 'thermostat', suggestedRoom: 'Bedroom', capabilities: ['onoff', 'mode', 'thermostat'], state: { on: true, powerW: 1180, energyTotalKwh: 412.6, todayKwh: 6.1, energyHours: demoHours(0.9), energyDays: Array.from({ length: 20 }, (_, i) => ({ day: new Date(Date.now() - (19 - i) * 86400000).toLocaleDateString('en-CA'), kwh: Math.round((5 + 3 * Math.sin(i)) * 10) / 10 })), temperature: 26.1, targetTemperature: 23.5, mode: 'cool', availableModes: ['cool', 'dry', 'wind', 'auto'] } }),
     d({ id: 'smartthings_tv_plug', provider: 'smartthings', providerId: 'plug1', name: 'TV plug', type: 'plug', suggestedRoom: 'Living room', capabilities: ['onoff'], state: { on: true, powerW: 86, energyEstimated: true, energyHours: demoHours(0.09), energyDays: Array.from({ length: 12 }, (_, i) => ({ day: new Date(Date.now() - (11 - i) * 86400000).toLocaleDateString('en-CA'), kwh: Math.round((0.6 + 0.3 * Math.cos(i)) * 100) / 100 })) } }),
     d({ id: 'imou_entrada', provider: 'imou', providerId: 'CAM1', name: 'Entrada', type: 'camera', model: 'IPC-A22EP', capabilities: ['onoff', 'snapshot', 'live'], prefs: { room: 'Entrance' }, state: { on: true, imageUrl: '/car/front.webp' } }),
@@ -145,6 +173,10 @@ export function createDemoBackend(): Backend {
     enphase: { provider: 'enphase', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['clientId', 'clientSecret', 'apiKey'] },
     growatt: { provider: 'growatt', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['token'] },
     wallbox: { provider: 'wallbox', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['email', 'password'] },
+    tesla: { provider: 'tesla', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['clientId', 'clientSecret'] },
+    byd: { provider: 'byd', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['endpoint', 'apiKey'] },
+    volkswagen: { provider: 'volkswagen', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['endpoint', 'apiKey'] },
+    hyundai: { provider: 'hyundai', configured: true, connected: true, lastSyncAt: now(), deviceCount: 1, fieldsSet: ['clientId', 'clientSecret', 'vins'] },
   };
   const deviceSubs = new Set<(x: Device[]) => void>();
   const statusSubs = new Set<(x: typeof status) => void>();

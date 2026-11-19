@@ -205,6 +205,86 @@ PROVIDERS.push({
 });
 
 PROVIDERS.push({
+  id: 'tesla',
+  name: 'Tesla',
+  blurb: 'Read-only: battery, charging, range, doors, windows, tyre warnings and location. Sleeping cars are not woken.',
+  color: '#e82127',
+  oauth: true,
+  docsUrl: 'https://developer.tesla.com/docs/fleet-api/getting-started/what-is-fleet-api',
+  steps: [
+    'Create an application at developer.tesla.com (Fleet API) and copy its client ID and client secret. Fleet API requests are billed by Tesla.',
+    'Host your public key at https://<your-domain>/.well-known/appspecific/com.tesla.3p.public-key.pem and call the partner register endpoint once in each region you use.',
+    'Add the redirect URI shown below to the application, then press Connect.',
+  ],
+  fields: [
+    { key: 'clientId', label: 'Client ID' },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+    { key: 'endpoint', label: 'Fleet API URL', optional: true, placeholder: 'https://fleet-api.prd.na.vn.cloud.tesla.com', help: 'North America and Europe use the default host; China uses https://fleet-api.prd.cn.vn.cloud.tesla.cn.' },
+    { key: 'vins', label: 'VIN', optional: true, placeholder: '5YJ…', help: 'Only if you want a subset of the cars on the account. Separate several with commas.' },
+    { key: 'scopes', label: 'Scopes', optional: true, help: 'Space separated. Leave blank for the default read-only set (openid offline_access user_data vehicle_device_data vehicle_location).' },
+    { key: 'redirectUri', label: 'Redirect URI override', optional: true },
+  ],
+});
+
+PROVIDERS.push({
+  id: 'hyundai',
+  name: 'Hyundai',
+  blurb: 'Read-only, Europe only, through the Pleos Vehicle Data API (EU Data Act). Needs Pleos approval.',
+  color: '#002c5f',
+  oauth: false,
+  docsUrl: 'https://document.pleos.ai/en/api-reference/vehicle-data-api/getting-started/api-access-request',
+  steps: [
+    'Request Vehicle Data API access in the Pleos portal for your car (Europe only).',
+    'Copy the client ID and client secret Pleos gives you, and your car’s VIN. Syncs as soon as you save.',
+  ],
+  fields: [
+    { key: 'clientId', label: 'Client ID' },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+    { key: 'vins', label: 'VIN', placeholder: 'KMH…', help: 'Separate several with commas. Found in the Bluelink app or on the windscreen.' },
+    { key: 'endpoint', label: 'API URL', optional: true, help: 'Only change this if Pleos gives you a different Vehicle Data API URL.' },
+    { key: 'tokenUrl', label: 'Token URL', optional: true, help: 'Only change this if Pleos gives you a different token URL.' },
+  ],
+});
+
+PROVIDERS.push({
+  id: 'volkswagen',
+  name: 'Volkswagen',
+  blurb: 'Unofficial / best-effort: read-only car status through a gateway you run or subscribe to (e.g. CarConnectivity). VW has no public owner API.',
+  color: '#001e50',
+  oauth: false,
+  docsUrl: 'https://github.com/tillsteinbach/CarConnectivity',
+  steps: [
+    'Run or subscribe to a gateway that reads your car from Volkswagen and serves it over HTTPS with a bearer API key.',
+    'The gateway must answer GET /vehicles with a list of { vin, name, model } and GET /vehicles/<vin>/status with the car’s battery, range, charging, odometer, lock, doors, windows and location.',
+    'Enter its URL and API key. Syncs as soon as you save.',
+  ],
+  fields: [
+    { key: 'endpoint', label: 'Gateway URL', placeholder: 'https://…' },
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'vins', label: 'VIN', optional: true, placeholder: 'WVW…', help: 'Only if the gateway has no vehicle list. Separate several with commas.' },
+  ],
+});
+
+PROVIDERS.push({
+  id: 'byd',
+  name: 'BYD',
+  blurb: 'Unofficial / best-effort: read-only car status through a gateway you run or subscribe to. BYD has no public owner API.',
+  color: '#c8102e',
+  oauth: false,
+  docsUrl: 'https://github.com/jestrade/smart-home-dashboard#set-up-for-real',
+  steps: [
+    'Run or subscribe to a gateway that reads your car from BYD and serves it over HTTPS with a bearer API key.',
+    'The gateway must answer GET /vehicles with a list of { vin, name, model } and GET /vehicles/<vin>/status with the car’s battery, range, charging, odometer, lock, doors, windows and location.',
+    'Enter its URL and API key. Syncs as soon as you save.',
+  ],
+  fields: [
+    { key: 'endpoint', label: 'Gateway URL', placeholder: 'https://…' },
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'vins', label: 'VIN', optional: true, placeholder: 'LGX…', help: 'Only if the gateway has no vehicle list. Separate several with commas.' },
+  ],
+});
+
+PROVIDERS.push({
   id: 'huawei',
   name: 'Huawei FusionSolar',
   blurb: 'Huawei solar inverters (read-only): live production, today’s and lifetime energy, inverters.',

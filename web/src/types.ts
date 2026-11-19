@@ -1,4 +1,5 @@
 export type ProviderId = 'tuya' | 'volvo' | 'google' | 'homeassistant' | 'wallbox' | 'smartthings' | 'imou' | 'solis' | 'motion'
+  | 'tesla' | 'byd' | 'volkswagen' | 'hyundai'
   | 'huawei' | 'solaredge' | 'enphase' | 'growatt';
 
 export type DeviceType =
