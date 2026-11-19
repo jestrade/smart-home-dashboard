@@ -450,14 +450,14 @@ input[type=range] { width: 100%; accent-color: var(--active); }
 
 /* ---------- blurred photo background (per theme) ---------- */
 :root {
-  --bg-image: url('/bg/light.jpg');
+  --bg-image: var(--bg-photo-light, none);
   --bg-pos: center 20%;
   --bg-veil: rgba(244, 245, 247, 0.18);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg-image: url('/bg/dark.jpg'); --bg-pos: center; --bg-veil: rgba(15, 17, 21, 0.58); }
+  :root:not([data-theme="light"]) { --bg-image: var(--bg-photo-dark, none); --bg-pos: center; --bg-veil: rgba(15, 17, 21, 0.58); }
 }
-:root[data-theme="dark"] { --bg-image: url('/bg/dark.jpg'); --bg-pos: center; --bg-veil: rgba(15, 17, 21, 0.58); }
+:root[data-theme="dark"] { --bg-image: var(--bg-photo-dark, none); --bg-pos: center; --bg-veil: rgba(15, 17, 21, 0.58); }
 
 /* Photo layer, blurred and slightly enlarged so the blur never shows soft edges. */
 body::before {

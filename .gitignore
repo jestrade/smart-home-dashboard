@@ -10,3 +10,8 @@ ui-debug.log
 .firebase/
 *.tsbuildinfo
 bridge/config.json
+# Your Firebase project (copy .firebaserc.example).
+.firebaserc
+
+# The household configuration (house plan, cars, photos, name). See home.example/.
+/home/

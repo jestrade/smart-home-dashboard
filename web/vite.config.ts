@@ -1,8 +1,32 @@
-import { defineConfig } from 'vite';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// The household configuration: home/ (private, git-ignored) when it exists, else the sample in
+// home.example/. Everything personal (name, house plan, cars, photos) lives there.
+const repo = fileURLToPath(new URL('..', import.meta.url));
+const homeDir = existsSync(`${repo}home/home.config.ts`) ? `${repo}home` : `${repo}home.example`;
+const site = JSON.parse(readFileSync(`${homeDir}/site.json`, 'utf8')) as { appName: string; contactEmail?: string };
+
+/** Fills %APP_NAME% and %CONTACT% in the HTML pages (index.html, terms.html). */
+const siteText = (): Plugin => ({
+  name: 'home-site-text',
+  transformIndexHtml: (html) =>
+    html
+      .replaceAll('%APP_NAME%', site.appName)
+      .replaceAll(
+        '%CONTACT%',
+        site.contactEmail ? `<a href="mailto:${site.contactEmail}">${site.contactEmail}</a>` : 'the person who runs this dashboard',
+      ),
+});
+
 export default defineConfig({
-  plugins: [react()],
-  server: { port: 5173 },
-  build: { chunkSizeWarningLimit: 900 },
+  plugins: [react(), siteText()],
+  resolve: { alias: { '@home': homeDir } },
+  server: { port: 5173, fs: { allow: [repo] } },
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: { input: { main: 'index.html', terms: 'terms.html' } },
+  },
 });

@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { DeviceCard, type Run } from './DeviceCard';
 import { Widgets } from './Widgets';
 import { Floorplan } from '../floorplan/Floorplan';
+import { HAS_HOUSE } from '../floorplan/plan';
 import { Icon, deviceIcon } from './Icon';
 import { PROVIDERS } from '../providers';
 import { displayName, roomOf, type Device, type DevicePrefs, type HomeLayout, type ProviderId } from '../types';
@@ -88,7 +89,13 @@ function SortableSection({ id, label, children }: { id: string; label: string; c
   );
 }
 
-const SECTIONS: Record<string, string> = { today: 'Today', plan: 'Floor plan', summary: 'Summary', devices: 'Devices' };
+const SECTIONS: Record<string, string> = {
+  today: 'Today',
+  // The floor plan only shows when the household configured a house (home/house.ts).
+  ...(HAS_HOUSE ? { plan: 'Floor plan' } : {}),
+  summary: 'Summary',
+  devices: 'Devices',
+};
 
 function DropGrid({ room, children }: { room: string; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId(room) });

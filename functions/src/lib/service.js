@@ -62,6 +62,7 @@ export async function writeStatus(id, cfg, extra = {}) {
 
 // ---------- energy per day ----------
 
+// The household's time zone (functions/.env: HOME_TZ=America/New_York), for daily and hourly energy.
 const HOME_TZ = process.env.HOME_TZ || 'UTC';
 const localDay = (t = Date.now()) => new Intl.DateTimeFormat('en-CA', { timeZone: HOME_TZ }).format(new Date(t)); // yyyy-mm-dd
 const localHour = (t = Date.now()) =>

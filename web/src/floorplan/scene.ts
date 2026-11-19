@@ -1,4 +1,4 @@
-// Builds the 3D model of the house from plan.ts. No React here.
+// Builds the 3D model of the house from the configured plan (plan.ts). No React here.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -479,8 +479,10 @@ export function buildHouse(): THREE.Group {
   ground.name = 'Ground';
   ground.receiveShadow = true;
   house.add(ground);
-  floor([lot[0], SIDEWALK[3], lot[2], lot[3]], 'concrete', -0.02, -0.01, 'Street');
-  floor(SIDEWALK, 'paving', -0.02, 0.0, 'Sidewalk');
+  if (SIDEWALK) {
+    floor([lot[0], SIDEWALK[3], lot[2], lot[3]], 'concrete', -0.02, -0.01, 'Street');
+    floor(SIDEWALK, 'paving', -0.02, 0.0, 'Sidewalk');
+  }
 
   for (const z of FLOORS) floor(z.rect, z.surface, 0, 0.03, `Floor ${z.label}`);
   for (const e of EXTRA_FLOORS) floor(e.rect, e.surface, 0, 0.03, 'Floor');

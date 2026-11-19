@@ -11,7 +11,10 @@
     "skipLibCheck": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": { "@home/*": ["../home/*", "../home.example/*"] }
   },
   "include": ["src"]
 }

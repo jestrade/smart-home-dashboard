@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { home } from '../home';
 import { Icon } from './Icon';
 import type { Backend } from '../data';
 import type { AccessStatus, AppUser } from '../types';
@@ -19,7 +20,7 @@ export function Gate({ backend, user, access, onClaimed }: {
     <div className="gate">
       <div className="card gate-card">
         <span className="brand-mark"><Icon name="home" size={28} /></span>
-        <h1>Smart Home</h1>
+        <h1>{home.appName}</h1>
         {!user && (
           <>
             <p>Sign in to control your lights, thermostat, locks and car.</p>

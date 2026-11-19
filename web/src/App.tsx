@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { home } from './home';
 import { backend } from './data';
 import { Gate } from './components/Gate';
 import { HomeView } from './components/HomeView';
@@ -154,7 +155,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark"><Icon name="home" /></span>
-          <span className="brand-name">Smart Home</span>
+          <span className="brand-name">{home.appName}</span>
           {backend.mode === 'demo' && <span className="badge info">Demo</span>}
         </div>
         <nav className="tabs" aria-label="Sections">

@@ -1,6 +1,7 @@
 {
   "name": "smart-home-dashboard",
   "private": true,
+  "type": "module",
   "scripts": {
     "setup": "npm --prefix web install && npm --prefix functions install",
     "demo": "npm --prefix web run demo",

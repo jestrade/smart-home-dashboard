@@ -38,11 +38,13 @@ Open http://localhost:5173. Demo mode uses sample devices in memory.
 
 1. **Firebase project** (Blaze plan is required for Cloud Functions and outbound API calls).
    - Create a project, add a Web app, enable **Authentication → Google** and **Firestore**.
-   - Put the project ID in `.firebaserc`.
+   - Copy `.firebaserc.example` to `.firebaserc` and put your project ID in it.
    - Copy `web/.env.example` to `web/.env.local` and fill in the web app config.
-2. **Deploy:** `firebase deploy` (builds the web app, deploys hosting, rules and functions).
-3. Open the hosted URL, sign in with Google, and **Claim dashboard**.
-4. On **Integrations**, set up each provider:
+   - Copy `functions/.env.example` to `functions/.env` and set `HOME_TZ` to your time zone.
+2. **Your home:** `cp -R home.example home`, then edit it (see [Your home](#your-home)).
+3. **Deploy:** `firebase deploy` (builds the web app, deploys hosting, rules and functions).
+4. Open the hosted URL, sign in with Google, and **Claim dashboard**.
+5. On **Integrations**, set up each provider:
 
 | Provider | What you need | Notes |
 | --- | --- | --- |
@@ -61,6 +63,23 @@ npm run emulators            # auth, firestore, functions (needs Java)
 # in web/.env.local: VITE_USE_EMULATORS=true
 npm run dev
 ```
+
+## Your home
+
+Everything about your own household lives in `home/`, which git ignores, so your house plan and
+photos never reach the repository. Without it the app uses the sample in `home.example/`.
+
+| File | What it holds |
+| --- | --- |
+| `home/site.json` | The app's name and the contact email shown on the terms page. |
+| `home/house.ts` | The one-floor plan behind the 3D view on the Home tab: rooms (with the room names that map to them), walls, doors, windows, furniture and the plot. Export `null` to hide the plan. |
+| `home/home.config.ts` | Car profiles with photos, and the page background photos. |
+
+To trace your house, open a floor plan image, read the corners in pixels and set `scale` to
+metres per pixel. `npm --prefix web run export:glb -- ../home/house.glb` saves the result as a
+glTF model you can open in Blender or any 3D viewer.
+
+Keep `home/` backed up somewhere private (a private repository or a synced folder).
 
 ## Adding another integration
 

@@ -1,5 +1,5 @@
 {
-  "endpoint": "https://us-central1-your-firebase-project-id.cloudfunctions.net/bridge/motion",
+  "endpoint": "https://us-central1-YOUR-PROJECT-ID.cloudfunctions.net/bridge/motion",
   "token": "paste the bridge token from the Motion Blinds card",
   "key": "16-character key from the Motion Blinds app",
   "gatewayIp": null
